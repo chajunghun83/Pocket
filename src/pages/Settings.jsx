@@ -1,6 +1,44 @@
-import { User, Lock, Database, Bell, Info, ExternalLink } from 'lucide-react'
+import { User, Lock, Database, Info, ExternalLink, Moon, Sun, DollarSign, Target, Home } from 'lucide-react'
+import { useSettings } from '../context/SettingsContext'
+import { formatCurrency } from '../data/dummyData'
 
 function Settings() {
+  const { settings, updateSetting, toggleDarkMode } = useSettings()
+
+  // 예산 목표 변경 핸들러
+  const handleBudgetChange = (e) => {
+    const value = parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0
+    updateSetting('budgetGoal', value)
+  }
+
+  // 토글 스위치 컴포넌트
+  const Toggle = ({ isOn, onToggle }) => (
+    <div 
+      onClick={onToggle}
+      style={{ 
+        width: '44px', 
+        height: '24px', 
+        background: isOn ? 'var(--accent)' : 'var(--border)', 
+        borderRadius: '12px',
+        position: 'relative', 
+        cursor: 'pointer',
+        transition: 'background 0.2s ease'
+      }}
+    >
+      <div style={{ 
+        width: '20px', 
+        height: '20px', 
+        background: 'white', 
+        borderRadius: '50%',
+        position: 'absolute', 
+        top: '2px',
+        left: isOn ? '22px' : '2px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+        transition: 'left 0.2s ease'
+      }} />
+    </div>
+  )
+
   return (
     <div className="fade-in page-container">
       <div className="page-header">
@@ -9,6 +47,7 @@ function Settings() {
       </div>
 
       <div className="content-area">
+        {/* 계정 & 데이터 */}
         <div className="grid-2">
           {/* 계정 */}
           <div className="card">
@@ -70,39 +109,154 @@ function Settings() {
           </div>
         </div>
 
-        {/* 알림 */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Bell size={14} style={{ color: 'var(--accent)' }} />
-              알림
-            </h3>
-          </div>
-          <div className="card-body" style={{ padding: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <p style={{ fontWeight: '500', fontSize: '0.8rem' }}>지출 알림</p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>예정된 지출 전 알림</p>
-              </div>
+        {/* 화면 설정 & 예산 목표 */}
+        <div className="grid-2">
+          {/* 화면 설정 */}
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {settings.darkMode ? <Moon size={14} style={{ color: 'var(--accent)' }} /> : <Sun size={14} style={{ color: 'var(--accent)' }} />}
+                화면 설정
+              </h3>
+            </div>
+            <div className="card-body" style={{ padding: 0 }}>
+              {/* 다크모드 */}
               <div style={{ 
-                width: '36px', height: '20px', background: 'var(--accent)', borderRadius: '10px',
-                position: 'relative', cursor: 'pointer'
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '12px 16px',
+                borderBottom: '1px solid var(--border)'
               }}>
-                <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%',
-                  position: 'absolute', right: '2px', top: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                <div>
+                  <p style={{ fontWeight: '500', fontSize: '0.85rem' }}>다크 모드</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>어두운 테마로 전환</p>
+                </div>
+                <Toggle isOn={settings.darkMode} onToggle={toggleDarkMode} />
+              </div>
+              
+              {/* 시작 페이지 */}
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <p style={{ fontWeight: '500', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Home size={12} />
+                    시작 페이지
+                  </p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>앱 시작 시 첫 화면</p>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: '/', label: '대시보드' },
+                    { value: '/budget', label: '가계부' },
+                    { value: '/debt', label: '부채' },
+                    { value: '/stock', label: '주식' },
+                    { value: '/settings', label: '설정' }
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => updateSetting('startPage', value)}
+                      className={`btn ${settings.startPage === value ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* 기본 통화 */}
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <p style={{ fontWeight: '500', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <DollarSign size={12} />
+                    주식 기본 탭
+                  </p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>주식 페이지 첫 화면</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[
+                    { value: 'all', label: '전체' },
+                    { value: 'KR', label: '한국' },
+                    { value: 'US', label: '미국' }
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => updateSetting('defaultCurrency', value)}
+                      className={`btn ${settings.defaultCurrency === value ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ flex: 1, padding: '8px 12px' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px' }}>
-              <div>
-                <p style={{ fontWeight: '500', fontSize: '0.8rem' }}>월간 리포트</p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>매월 말 재무 리포트</p>
+          </div>
+
+          {/* 예산 목표 */}
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Target size={14} style={{ color: 'var(--accent)' }} />
+                예산 목표
+              </h3>
+            </div>
+            <div className="card-body">
+              <p style={{ fontWeight: '500', fontSize: '0.85rem', marginBottom: '4px' }}>월 지출 목표</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginBottom: '12px' }}>
+                가계부 페이지에서 지출 진행률을 확인할 수 있습니다
+              </p>
+              <div style={{ position: 'relative', marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  value={settings.budgetGoal.toLocaleString()}
+                  onChange={handleBudgetChange}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    paddingRight: '40px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    fontSize: '1.1rem',
+                    fontWeight: '600',
+                    textAlign: 'right',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+                <span style={{
+                  position: 'absolute',
+                  right: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.9rem'
+                }}>원</span>
               </div>
-              <div style={{ 
-                width: '36px', height: '20px', background: 'var(--border)', borderRadius: '10px',
-                position: 'relative', cursor: 'pointer'
-              }}>
-                <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%',
-                  position: 'absolute', left: '2px', top: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+              
+              {/* 금액 조절 버튼 */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { amount: 10000, label: '+1만' },
+                  { amount: 100000, label: '+10만' },
+                  { amount: 1000000, label: '+100만' }
+                ].map(({ amount, label }) => (
+                  <button
+                    key={amount}
+                    onClick={() => updateSetting('budgetGoal', settings.budgetGoal + amount)}
+                    className="btn btn-secondary"
+                    style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => updateSetting('budgetGoal', 0)}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--expense)' }}
+                >
+                  초기화
+                </button>
               </div>
             </div>
           </div>

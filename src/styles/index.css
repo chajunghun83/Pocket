@@ -3,8 +3,8 @@
    PC: 스크롤 없이 한 페이지에 표시
    ======================================== */
 
-/* CSS 변수 정의 */
-:root {
+/* CSS 변수 정의 - 라이트 모드 (기본) */
+:root, [data-theme="light"] {
   /* 배경 */
   --bg-primary: #F8FAFC;
   --bg-card: #FFFFFF;
@@ -44,6 +44,44 @@
   /* 레이아웃 */
   --header-height: 60px;
   --page-padding: 20px;
+}
+
+/* 다크 모드 */
+[data-theme="dark"] {
+  /* 배경 */
+  --bg-primary: #0F172A;
+  --bg-card: #1E293B;
+  --bg-hover: #334155;
+  
+  /* 악센트 */
+  --accent: #818CF8;
+  --accent-light: #312E81;
+  --accent-dark: #A5B4FC;
+  
+  /* 시맨틱 컬러 */
+  --income: #34D399;
+  --income-light: #064E3B;
+  --expense: #FB7185;
+  --expense-light: #4C0519;
+  --profit: #34D399;
+  --loss: #FB7185;
+  
+  /* 텍스트 */
+  --text-primary: #F1F5F9;
+  --text-secondary: #CBD5E1;
+  --text-muted: #64748B;
+  
+  /* 보더 */
+  --border: #334155;
+  --border-light: #1E293B;
+  
+  /* 그림자 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  
+  /* 사이드바 */
+  --sidebar-bg: #0F172A;
 }
 
 /* 기본 리셋 */
@@ -671,6 +709,16 @@ button {
 
 .fade-in {
   animation: fadeIn 0.2s ease;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translate(-50%, -45%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 /* 스크롤바 - 얇게 */

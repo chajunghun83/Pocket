@@ -261,14 +261,15 @@ git pull
 - [x] `npm install` 완료 ✅
 - [x] `npm run dev` 실행 확인 ✅ (http://localhost:3000)
 
-### 다른 PC에서 확인할 사항
-- [ ] Git 설치
-- [ ] Node.js 설치
-- [ ] GitHub 계정 설정
-- [ ] GitHub에 로그인
-- [ ] 프로젝트 clone
-- [ ] `.env` 파일 생성 (env-template.txt 참고)
-- [ ] Supabase 접속 확인
+### 다른 PC에서 확인할 사항 (집 PC) ✅ 완료!
+- [x] Git 설치 ✅ (v2.52.0)
+- [x] Node.js 설치 ✅ (v24.12.0)
+- [x] GitHub 계정 설정 ✅ (chajunghun83)
+- [x] GitHub 연결 ✅
+- [x] 프로젝트 clone ✅ (C:\work\Pocket)
+- [x] `.env` 파일 생성 ✅
+- [x] npm install 완료 ✅
+- [x] 개발 서버 실행 확인 ✅ (http://localhost:3000)
 
 ---
 

@@ -4,27 +4,27 @@ export const currentMonth = '2025년 1월'
 
 // 가계부 - 수입
 export const incomeData = [
-  { id: 1, name: '월급', amount: 4500000, date: '2025-01-25', completed: true },
-  { id: 2, name: '부업 수입', amount: 500000, date: '2025-01-15', completed: true },
-  { id: 3, name: '이자 수익', amount: 12500, date: '2025-01-20', completed: true },
+  { id: 1, name: '월급', amount: 4500000, date: '2025-01-25', completed: true, memo: '회사 급여 (세후)' },
+  { id: 2, name: '부업 수입', amount: 500000, date: '2025-01-15', completed: true, memo: '프리랜서 외주 작업\n- 웹사이트 리뉴얼\n- 디자인 수정' },
+  { id: 3, name: '이자 수익', amount: 12500, date: '2025-01-20', completed: true, memo: '적금 이자 (신한은행)' },
 ]
 
 // 가계부 - 고정 지출
 export const fixedExpenseData = [
-  { id: 1, name: '월세', amount: 800000, date: '2025-01-05', completed: true },
-  { id: 2, name: '관리비', amount: 150000, date: '2025-01-10', completed: true },
-  { id: 3, name: '통신비 (휴대폰)', amount: 65000, date: '2025-01-08', completed: true },
-  { id: 4, name: '인터넷', amount: 35000, date: '2025-01-15', completed: false },
-  { id: 5, name: '보험료', amount: 200000, date: '2025-01-20', completed: false },
-  { id: 6, name: '넷플릭스', amount: 17000, date: '2025-01-10', completed: true },
-  { id: 7, name: '유튜브 프리미엄', amount: 14900, date: '2025-01-12', completed: true },
+  { id: 1, name: '월세', amount: 800000, date: '2025-01-05', completed: true, memo: '원룸 월세\n계좌: 국민 123-456-789' },
+  { id: 2, name: '관리비', amount: 150000, date: '2025-01-10', completed: true, memo: '아파트 관리비 (수도, 전기 포함)' },
+  { id: 3, name: '통신비 (휴대폰)', amount: 65000, date: '2025-01-08', completed: true, memo: 'SKT 5G 요금제' },
+  { id: 4, name: '인터넷', amount: 35000, date: '2025-01-15', completed: false, memo: 'KT 기가 인터넷' },
+  { id: 5, name: '보험료', amount: 200000, date: '2025-01-20', completed: false, memo: '삼성생명 종합보험\n- 실비 포함\n- 암보험 특약' },
+  { id: 6, name: '넷플릭스', amount: 17000, date: '2025-01-10', completed: true, memo: '프리미엄 요금제 (4K)' },
+  { id: 7, name: '유튜브 프리미엄', amount: 14900, date: '2025-01-12', completed: true, memo: '가족 요금제' },
 ]
 
 // 가계부 - 변동 지출 (카드)
 export const variableExpenseData = [
-  { id: 1, name: '신한카드', amount: 523000, date: '2025-01-15', completed: true },
-  { id: 2, name: '현대카드', amount: 312000, date: '2025-01-18', completed: false },
-  { id: 3, name: '삼성카드', amount: 189000, date: '2025-01-22', completed: false },
+  { id: 1, name: '신한카드', amount: 523000, date: '2025-01-15', completed: true, memo: '식비, 교통비, 쇼핑\n- 마트 장보기 150,000\n- 외식 120,000\n- 교통비 53,000\n- 기타 200,000' },
+  { id: 2, name: '현대카드', amount: 312000, date: '2025-01-18', completed: false, memo: '온라인 쇼핑\n- 쿠팡 212,000\n- 네이버 100,000' },
+  { id: 3, name: '삼성카드', amount: 189000, date: '2025-01-22', completed: false, memo: '주유비, 차량 유지비' },
 ]
 
 // 부채 관리 - 마이너스 통장
@@ -47,6 +47,7 @@ export const koreanStocks = [
     name: '삼성전자', 
     code: '005930', 
     market: 'KR',
+    broker: 'namu',
     quantity: 50, 
     avgPrice: 72000, 
     currentPrice: 71300,
@@ -57,6 +58,7 @@ export const koreanStocks = [
     name: 'NAVER', 
     code: '035420', 
     market: 'KR',
+    broker: 'toss',
     quantity: 10, 
     avgPrice: 195000, 
     currentPrice: 182500,
@@ -67,6 +69,7 @@ export const koreanStocks = [
     name: '카카오', 
     code: '035720', 
     market: 'KR',
+    broker: 'isa',
     quantity: 30, 
     avgPrice: 52000, 
     currentPrice: 48500,
@@ -77,6 +80,7 @@ export const koreanStocks = [
     name: 'SK하이닉스', 
     code: '000660', 
     market: 'KR',
+    broker: 'namu',
     quantity: 15, 
     avgPrice: 135000, 
     currentPrice: 142000,
@@ -91,6 +95,7 @@ export const usStocks = [
     name: 'Apple', 
     code: 'AAPL', 
     market: 'US',
+    broker: 'toss',
     quantity: 10, 
     avgPrice: 178.50, 
     currentPrice: 185.92,
@@ -101,6 +106,7 @@ export const usStocks = [
     name: 'Tesla', 
     code: 'TSLA', 
     market: 'US',
+    broker: 'namu',
     quantity: 5, 
     avgPrice: 265.00, 
     currentPrice: 242.84,
@@ -111,6 +117,7 @@ export const usStocks = [
     name: 'NVIDIA', 
     code: 'NVDA', 
     market: 'US',
+    broker: 'isa',
     quantity: 3, 
     avgPrice: 450.00, 
     currentPrice: 495.22,
@@ -121,6 +128,7 @@ export const usStocks = [
     name: 'Microsoft', 
     code: 'MSFT', 
     market: 'US',
+    broker: 'toss',
     quantity: 8, 
     avgPrice: 380.00, 
     currentPrice: 425.18,

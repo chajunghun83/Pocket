@@ -53,7 +53,7 @@ function Debt() {
           <p className="summary-value">{formatCurrency(currentBalance)}</p>
         </div>
         <div className="summary-card">
-          <p className="summary-label">총 차입</p>
+          <p className="summary-label">총 대출</p>
           <p className="summary-value amount expense">{formatCurrency(totalBorrowed)}</p>
         </div>
         <div className="summary-card">
@@ -105,7 +105,7 @@ function Debt() {
             <div className="card-body">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>차입 횟수</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>대출 횟수</span>
                   <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>{debtData.filter(d => d.type === 'borrow').length}회</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -134,16 +134,19 @@ function Debt() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '70px' }}>구분</th>
-                  <th>내용</th>
-                  <th style={{ textAlign: 'right' }}>금액</th>
-                  <th style={{ width: '80px', textAlign: 'right' }}>날짜</th>
+                  <th style={{ width: '15%', textAlign: 'center' }}>날짜</th>
+                  <th style={{ width: '15%', textAlign: 'center' }}>구분</th>
+                  <th style={{ width: '20%', textAlign: 'center' }}>금액</th>
+                  <th style={{ width: '50%', textAlign: 'center' }}>내용</th>
                 </tr>
               </thead>
               <tbody>
                 {[...debtData].reverse().map((item) => (
                   <tr key={item.id}>
-                    <td>
+                    <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                      {item.date.slice(2).replace(/-/g, '/')}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
                       <span style={{ 
                         display: 'inline-flex', 
                         alignItems: 'center', 
@@ -152,18 +155,15 @@ function Debt() {
                         fontWeight: '500'
                       }}>
                         {item.type === 'borrow' ? <ArrowDownCircle size={12} /> : <ArrowUpCircle size={12} />}
-                        {item.type === 'borrow' ? '차입' : '상환'}
+                        {item.type === 'borrow' ? '대출' : '상환'}
                       </span>
                     </td>
-                    <td>{item.description}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'center' }}>
                       <span className={`amount ${item.type === 'borrow' ? 'expense' : 'income'}`}>
                         {item.type === 'borrow' ? '+' : '-'}{formatCurrency(item.amount)}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>
-                      {item.date.slice(2).replace(/-/g, '/')}
-                    </td>
+                    <td style={{ textAlign: 'center' }}>{item.description}</td>
                   </tr>
                 ))}
               </tbody>

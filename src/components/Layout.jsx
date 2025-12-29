@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -8,7 +8,8 @@ import {
   Menu,
   X
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSettings } from '../context/SettingsContext'
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: '대시보드' },
@@ -20,6 +21,18 @@ const navItems = [
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { settings } = useSettings()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const hasRedirected = useRef(false)
+
+  // 첫 로드 시 시작 페이지로 이동
+  useEffect(() => {
+    if (!hasRedirected.current && location.pathname === '/' && settings.startPage !== '/') {
+      hasRedirected.current = true
+      navigate(settings.startPage, { replace: true })
+    }
+  }, [settings.startPage, navigate, location.pathname])
 
   return (
     <div className="app-container">
