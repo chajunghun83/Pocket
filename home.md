@@ -1,12 +1,47 @@
 # 집 PC 환경 설정 체크리스트
 
-> **현재 PC (회사 또는 집)**: 환경 확인 완료 ✅
+> **현재 PC (회사 또는 집)**: 환경 설정 완료! ✅
 > 
-> - Git: 설치됨 ✅
-> - Node.js: 설치됨 ✅
-> - GitHub 계정: 설정됨 ✅
-> - **GitHub 저장소: 생성 완료 ✅**
->   - 저장소 URL: https://github.com/chajunghun83/Pocket
+> ### 완료된 작업들:
+> - [x] Git 설치 ✅ (v2.47.1)
+> - [x] Node.js 설치 ✅ (v22.16.0)
+> - [x] GitHub 계정 설정 ✅ (chajunghun83)
+> - [x] **GitHub 저장소 생성 완료** ✅
+>   - URL: https://github.com/chajunghun83/Pocket
+>   - 파일: README.md, .gitignore, prd.md, home.md, env-template.txt
+> - [x] **Supabase 프로젝트 생성 완료** ✅
+>   - Project URL: https://gzxbckioutctwxbevqmk.supabase.co
+>   - Organization: Pocket (FREE)
+> - [x] **`.env` 파일 생성 완료** ✅
+>   - Supabase 연결 정보 설정됨
+> 
+> ### 다음 단계:
+> - [ ] React 프로젝트 생성
+> - [ ] 개발 시작!
+
+---
+
+## 📊 전체 진행 상황
+
+```
+Phase 1: 환경 설정 ✅ 완료!
+├─ GitHub 저장소 생성 ✅
+├─ Supabase 프로젝트 생성 ✅
+├─ .env 파일 설정 ✅
+└─ 문서 작업 완료 ✅
+
+Phase 2: React 프로젝트 생성 ⬅️ 다음 단계!
+├─ Vite로 React 프로젝트 생성
+├─ Supabase 클라이언트 설치
+├─ 기본 레이아웃 구성
+└─ 로컬 실행 확인
+
+Phase 3: 기능 개발
+└─ 가계부, 부채 관리, 주식 관리 개발
+
+Phase 4: 배포
+└─ Vercel 배포
+```
 
 ---
 
@@ -127,16 +162,18 @@ npm run dev
 
 ---
 
-## 4단계: 환경변수 설정 (.env 파일)
+## 4단계: 환경변수 설정 (.env 파일) ✅ 완료!
 
-프로젝트 폴더에 `.env` 파일 생성 필요:
+프로젝트 폴더에 `.env` 파일이 생성되어 있습니다:
 
 ```
-VITE_SUPABASE_URL=여기에_Supabase_URL
-VITE_SUPABASE_ANON_KEY=여기에_Supabase_Key
+VITE_SUPABASE_URL=https://gzxbckioutctwxbevqmk.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-> **주의**: 이 파일은 GitHub에 올라가지 않으므로 각 PC마다 만들어야 합니다!
+> **주의**: 
+> - 이 파일은 GitHub에 올라가지 않습니다! (.gitignore에 포함됨)
+> - 다른 PC에서 작업할 때는 `env-template.txt`를 참고해서 `.env` 파일을 다시 만들어야 합니다!
 
 ---
 
@@ -199,17 +236,27 @@ git pull
 
 ## 빠른 체크리스트
 
-### 각 PC에서 확인
-- [ ] Git 설치됨
-- [ ] Node.js 설치됨
-- [ ] GitHub 계정 설정됨
-- [ ] GitHub에 로그인됨
-- [ ] Vercel 계정 생성됨
-- [ ] Supabase 계정 확인됨
-- [ ] 프로젝트 clone 완료
-- [ ] `.env` 파일 생성됨
+### 현재 PC (완료된 작업)
+- [x] Git 설치됨 ✅
+- [x] Node.js 설치됨 ✅
+- [x] GitHub 계정 설정됨 ✅
+- [x] GitHub에 로그인됨 ✅
+- [ ] Vercel 계정 생성됨 (배포 시 필요)
+- [x] Supabase 계정 확인됨 ✅
+- [x] Supabase 프로젝트 생성됨 ✅
+- [x] `.env` 파일 생성됨 ✅
+- [ ] React 프로젝트 생성 (다음 단계!)
 - [ ] `npm install` 완료
 - [ ] `npm run dev` 실행 확인
+
+### 다른 PC에서 확인할 사항
+- [ ] Git 설치
+- [ ] Node.js 설치
+- [ ] GitHub 계정 설정
+- [ ] GitHub에 로그인
+- [ ] 프로젝트 clone
+- [ ] `.env` 파일 생성 (env-template.txt 참고)
+- [ ] Supabase 접속 확인
 
 ---
 

@@ -605,17 +605,19 @@ git config --global user.email
 
 ### 9.2 개발 순서 (단계별)
 
-#### Phase 1: 환경 설정 (1일차)
-1. 모든 계정 가입 및 로그인
-2. Node.js, Git 설치 (Cursor는 이미 설치됨)
-3. GitHub에 새 저장소 생성
-4. Supabase 프로젝트 생성
+#### Phase 1: 환경 설정 ✅ 완료!
+1. ✅ 모든 계정 가입 및 로그인
+2. ✅ Node.js, Git 설치 (Cursor는 이미 설치됨)
+3. ✅ GitHub에 새 저장소 생성
+4. ✅ Supabase 프로젝트 생성
+5. ✅ `.env` 파일 생성 및 설정
 
-#### Phase 2: 프로젝트 초기 설정 (1일차)
-1. React 프로젝트 생성 (Create React App 또는 Vite 사용)
-2. Supabase 연결 설정
-3. 기본 로그인 화면 구현
-4. GitHub에 코드 업로드
+#### Phase 2: 프로젝트 초기 설정 (1일차) ⬅️ 다음 단계!
+1. React 프로젝트 생성 (Vite 사용 - 빠르고 간단)
+2. Supabase 클라이언트 라이브러리 설치
+3. 기본 레이아웃 및 네비게이션 구성
+4. Supabase 연결 테스트
+5. GitHub에 코드 업로드
 
 #### Phase 3: 가계부 기능 개발 (3-5일)
 1. 수입 입력 화면
@@ -706,7 +708,7 @@ git config --global user.email
 **현재 PC:**
 - [x] GitHub 계정 생성 및 로그인 ✅
 - [ ] Vercel 계정 생성
-- [ ] Supabase 계정 생성
+- [x] Supabase 계정 생성 ✅
 - [x] Cursor 설치 ✅
 - [x] Node.js 설치 ✅
 - [x] Git 설치 ✅
@@ -723,10 +725,12 @@ git config --global user.email
 
 #### ✅ 프로젝트 시작
 - [x] GitHub 저장소 생성 ✅ (https://github.com/chajunghun83/Pocket)
+- [x] 로컬 Git 저장소 초기화 ✅
+- [x] PRD 및 문서 GitHub 업로드 ✅
+- [x] Supabase 프로젝트 생성 ✅ (https://gzxbckioutctwxbevqmk.supabase.co)
+- [x] `.env` 파일 생성 및 Supabase 연결 정보 설정 ✅
 - [ ] React 프로젝트 생성
-- [ ] Supabase 프로젝트 생성
 - [ ] 로컬에서 실행 확인
-- [ ] GitHub에 첫 커밋
 
 #### ✅ 기능 개발
 - [ ] 로그인 기능
