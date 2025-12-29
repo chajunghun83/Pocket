@@ -1,6 +1,6 @@
 # 집 PC 환경 설정 체크리스트
 
-> **현재 PC (회사 또는 집)**: 환경 설정 완료! ✅
+> **현재 PC (회사 또는 집)**: React 프로젝트 생성 완료! ✅
 > 
 > ### 완료된 작업들:
 > - [x] Git 설치 ✅ (v2.47.1)
@@ -8,16 +8,18 @@
 > - [x] GitHub 계정 설정 ✅ (chajunghun83)
 > - [x] **GitHub 저장소 생성 완료** ✅
 >   - URL: https://github.com/chajunghun83/Pocket
->   - 파일: README.md, .gitignore, prd.md, home.md, env-template.txt
 > - [x] **Supabase 프로젝트 생성 완료** ✅
 >   - Project URL: https://gzxbckioutctwxbevqmk.supabase.co
->   - Organization: Pocket (FREE)
 > - [x] **`.env` 파일 생성 완료** ✅
->   - Supabase 연결 정보 설정됨
+> - [x] **React 프로젝트 생성 완료** ✅
+>   - Vite + React
+>   - 로컬 실행: http://localhost:3000
+> - [x] **UI 개발 완료 (더미 데이터)** ✅
+>   - 대시보드, 가계부, 부채 관리, 주식 관리, 설정 페이지
 > 
 > ### 다음 단계:
-> - [ ] React 프로젝트 생성
-> - [ ] 개발 시작!
+> - [ ] Supabase 연동 (실제 데이터 저장)
+> - [ ] 로그인 기능 구현
 
 ---
 
@@ -30,16 +32,26 @@ Phase 1: 환경 설정 ✅ 완료!
 ├─ .env 파일 설정 ✅
 └─ 문서 작업 완료 ✅
 
-Phase 2: React 프로젝트 생성 ⬅️ 다음 단계!
-├─ Vite로 React 프로젝트 생성
-├─ Supabase 클라이언트 설치
-├─ 기본 레이아웃 구성
-└─ 로컬 실행 확인
+Phase 2: React 프로젝트 생성 ✅ 완료!
+├─ Vite로 React 프로젝트 생성 ✅
+├─ 라이브러리 설치 ✅ (Supabase, Router, Recharts, Lucide)
+├─ 기본 레이아웃 구성 ✅
+└─ 로컬 실행 확인 ✅ (http://localhost:3000)
 
-Phase 3: 기능 개발
-└─ 가계부, 부채 관리, 주식 관리 개발
+Phase 3: UI 개발 ✅ 완료! (더미 데이터)
+├─ 대시보드 페이지 ✅
+├─ 가계부 페이지 ✅ (3열: 수입/고정지출/변동지출)
+├─ 부채 관리 페이지 ✅
+├─ 주식 관리 페이지 ✅
+└─ 설정 페이지 ✅
 
-Phase 4: 배포
+Phase 4: Supabase 연동 ⬅️ 다음 단계!
+├─ 로그인 기능
+├─ 가계부 CRUD
+├─ 부채 관리 CRUD
+└─ 주식 관리 CRUD
+
+Phase 5: 배포
 └─ Vercel 배포
 ```
 
@@ -245,9 +257,9 @@ git pull
 - [x] Supabase 계정 확인됨 ✅
 - [x] Supabase 프로젝트 생성됨 ✅
 - [x] `.env` 파일 생성됨 ✅
-- [ ] React 프로젝트 생성 (다음 단계!)
-- [ ] `npm install` 완료
-- [ ] `npm run dev` 실행 확인
+- [x] React 프로젝트 생성 ✅
+- [x] `npm install` 완료 ✅
+- [x] `npm run dev` 실행 확인 ✅ (http://localhost:3000)
 
 ### 다른 PC에서 확인할 사항
 - [ ] Git 설치
