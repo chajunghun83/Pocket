@@ -1,12 +1,18 @@
-import { useState } from 'react'
-import { Plus, ArrowUpCircle, ArrowDownCircle, X, Edit3, Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, ArrowUpCircle, ArrowDownCircle, X, Edit3, Trash2, Loader2, Database } from 'lucide-react'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import {
-  assetData,
+  assetData as initialAssetData,
   assetHistory,
   formatCurrency,
-  calculateAssetBalance,
 } from '../data/dummyData'
+import {
+  getAssets,
+  addAsset,
+  updateAsset,
+  deleteAsset,
+  migrateAssets,
+} from '../services/assetService'
 
 function Asset() {
   // 팝업 state
@@ -21,8 +27,95 @@ function Asset() {
     description: ''
   })
   
-  // 데이터 state (실제로는 서버에서 관리)
-  const [dataList, setDataList] = useState([...assetData])
+  // 데이터 state
+  const [dataList, setDataList] = useState([])
+  
+  // 로딩 state
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [useSupabase, setUseSupabase] = useState(true)
+  
+  // 마이그레이션 중복 실행 방지
+  const isMigratingRef = useRef(false)
+  const hasLoadedRef = useRef(false)
+
+  // DB 데이터 → 프론트엔드 형식 변환
+  const transformData = (item) => ({
+    id: item.id,
+    type: item.type,
+    amount: Number(item.amount),
+    date: item.date,
+    description: item.description || ''
+  })
+
+  // Supabase에서 데이터 로드
+  const loadData = useCallback(async () => {
+    // 이미 로드 중이면 무시 (React Strict Mode 중복 호출 방지)
+    if (hasLoadedRef.current) return
+    hasLoadedRef.current = true
+    
+    setIsLoading(true)
+    try {
+      const { data, error } = await getAssets()
+      
+      if (error) {
+        console.error('Supabase 로드 실패, 더미 데이터 사용:', error)
+        setUseSupabase(false)
+        setDataList([...initialAssetData])
+        return
+      }
+      
+      if (!data || data.length === 0) {
+        // 마이그레이션 중복 실행 방지
+        if (isMigratingRef.current) {
+          console.log('마이그레이션이 이미 진행 중입니다.')
+          return
+        }
+        isMigratingRef.current = true
+        
+        // 데이터가 없으면 마이그레이션 실행
+        console.log('자산 데이터가 없습니다. 마이그레이션을 실행합니다...')
+        const result = await migrateAssets(initialAssetData)
+        
+        if (result.success) {
+          // 마이그레이션 후 다시 로드
+          const { data: newData } = await getAssets()
+          if (newData) {
+            setDataList(newData.map(transformData))
+          }
+        } else {
+          // 마이그레이션 실패 시 더미 데이터 사용
+          setUseSupabase(false)
+          setDataList([...initialAssetData])
+        }
+      } else {
+        // 데이터 변환 및 설정
+        setDataList(data.map(transformData))
+      }
+    } catch (err) {
+      console.error('데이터 로드 오류:', err)
+      setUseSupabase(false)
+      setDataList([...initialAssetData])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // ESC 키로 팝업 닫기
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showModal) {
+        closeModal()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showModal])
 
   const currentBalance = dataList.reduce((balance, item) => {
     return item.type === 'deposit' ? balance + item.amount : balance - item.amount
@@ -67,42 +160,93 @@ function Asset() {
   }
 
   // 저장
-  const handleSave = () => {
-    if (!formData.day || !formData.amount || !formData.description) {
-      alert('모든 항목을 입력해주세요.')
+  const handleSave = async () => {
+    if (!formData.day || !formData.amount) {
+      alert('날짜와 금액을 입력해주세요.')
       return
     }
 
+    setIsSaving(true)
     const fullDate = `${formData.year}-${String(formData.month).padStart(2, '0')}-${String(formData.day).padStart(2, '0')}`
+    const amount = parseInt(formData.amount) || 0
     
-    if (editingItem) {
-      // 수정
-      const updatedList = dataList.map(item =>
-        item.id === editingItem.id
-          ? { ...item, date: fullDate, type: formData.type, amount: parseInt(formData.amount), description: formData.description }
-          : item
-      )
-      setDataList(updatedList)
-    } else {
-      // 추가
-      const newId = Math.max(...dataList.map(i => i.id), 0) + 1
-      const newItem = {
-        id: newId,
-        type: formData.type,
-        amount: parseInt(formData.amount),
-        date: fullDate,
-        description: formData.description
+    try {
+      if (editingItem) {
+        // 수정
+        if (useSupabase) {
+          const { data, error } = await updateAsset(editingItem.id, {
+            type: formData.type,
+            amount,
+            date: fullDate,
+            description: formData.description
+          })
+          
+          if (error) throw error
+          
+          const updatedItem = transformData(data)
+          setDataList(dataList.map(item =>
+            item.id === editingItem.id ? updatedItem : item
+          ))
+        } else {
+          // 더미 데이터 모드
+          setDataList(dataList.map(item =>
+            item.id === editingItem.id
+              ? { ...item, date: fullDate, type: formData.type, amount, description: formData.description }
+              : item
+          ))
+        }
+      } else {
+        // 추가
+        if (useSupabase) {
+          const { data, error } = await addAsset({
+            type: formData.type,
+            amount,
+            date: fullDate,
+            description: formData.description
+          })
+          
+          if (error) throw error
+          
+          const newItem = transformData(data)
+          setDataList([...dataList, newItem])
+        } else {
+          // 더미 데이터 모드
+          const newId = Math.max(...dataList.map(i => typeof i.id === 'number' ? i.id : 0), 0) + 1
+          const newItem = {
+            id: newId,
+            type: formData.type,
+            amount,
+            date: fullDate,
+            description: formData.description
+          }
+          setDataList([...dataList, newItem])
+        }
       }
-      setDataList([...dataList, newItem])
+      
+      closeModal()
+    } catch (err) {
+      console.error('저장 실패:', err)
+      alert('저장에 실패했습니다.')
+    } finally {
+      setIsSaving(false)
     }
-    
-    closeModal()
   }
 
   // 삭제
-  const handleDelete = (item) => {
-    if (window.confirm(`"${item.description}" 항목을 삭제하시겠습니까?`)) {
+  const handleDelete = async (item) => {
+    const confirmMsg = item.description ? `"${item.description}" 항목을 삭제하시겠습니까?` : '이 항목을 삭제하시겠습니까?'
+    if (!window.confirm(confirmMsg)) return
+    
+    try {
+      if (useSupabase) {
+        const { error } = await deleteAsset(item.id)
+        if (error) throw error
+      }
+      
       setDataList(dataList.filter(d => d.id !== item.id))
+    } catch (err) {
+      console.error('삭제 실패:', err)
+      alert('삭제에 실패했습니다.')
     }
   }
 
@@ -125,13 +269,55 @@ function Asset() {
     return null
   }
 
+  // 로딩 중 표시
+  if (isLoading) {
+    return (
+      <div className="fade-in page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+          <p>데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="fade-in page-container">
       {/* 헤더 */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">자산 관리</h1>
-          <p className="page-subtitle">CMA 통장 내역</p>
+          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            CMA 통장 내역
+            {useSupabase ? (
+              <span style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '4px', 
+                fontSize: '0.65rem', 
+                color: 'var(--income)',
+                background: 'var(--income-light)',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
+                <Database size={10} />
+                DB 연결됨
+              </span>
+            ) : (
+              <span style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '4px', 
+                fontSize: '0.65rem', 
+                color: 'var(--text-muted)',
+                background: 'var(--bg-secondary)',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
+                로컬 모드
+              </span>
+            )}
+          </p>
         </div>
         <button className="btn btn-primary" onClick={openAddModal}>
           <Plus size={12} />
@@ -589,8 +775,11 @@ function Asset() {
                 onClick={handleSave}
                 className="btn btn-primary"
                 style={{ flex: 1, padding: '12px' }}
+                disabled={isSaving}
               >
-                저장
+                {isSaving ? (
+                  <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> 저장 중...</>
+                ) : '저장'}
               </button>
             </div>
           </div>

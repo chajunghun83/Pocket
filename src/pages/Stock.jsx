@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { RefreshCw, TrendingUp, TrendingDown, Plus, Edit2, BarChart3, Loader2, ChevronUp, ChevronDown, X, Trash2 } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { RefreshCw, TrendingUp, TrendingDown, Plus, Edit2, BarChart3, Loader2, ChevronUp, ChevronDown, X, Trash2, ZoomIn, ZoomOut, Database } from 'lucide-react'
 import { 
   ComposedChart, 
   Bar, 
@@ -11,9 +11,9 @@ import {
   Cell
 } from 'recharts'
 import {
-  koreanStocks,
-  usStocks,
-  exchangeRate,
+  koreanStocks as initialKoreanStocks,
+  usStocks as initialUsStocks,
+  exchangeRate as initialExchangeRate,
   formatCurrency,
   formatPercent,
   calculateStockProfit,
@@ -21,6 +21,14 @@ import {
   calculateTotalStockInvestment,
 } from '../data/dummyData'
 import { useSettings } from '../context/SettingsContext'
+import { fetchMultipleStockPrices, fetchExchangeRate, fetchChartData } from '../services/yahooFinance'
+import {
+  getStocks,
+  addStock,
+  updateStock,
+  deleteStock as deleteStockDB,
+  migrateStocks,
+} from '../services/stockService'
 
 // 포트폴리오 비중 색상 팔레트
 const portfolioColors = [
@@ -66,73 +74,6 @@ const BROKERS = {
   },
 }
 
-// 더미 OHLC 차트 데이터 생성 함수
-const generateChartData = (stock, days = 30) => {
-  const data = []
-  const basePrice = stock.avgPrice
-  const volatility = stock.market === 'US' ? 0.025 : 0.02
-  let closePrice = basePrice * 0.92
-  
-  for (let i = days; i >= 0; i--) {
-    const date = new Date()
-    date.setDate(date.getDate() - i)
-    
-    // OHLC 데이터 생성
-    const change = (Math.random() - 0.48) * volatility * closePrice
-    const open = closePrice
-    const close = Math.max(closePrice + change, basePrice * 0.7)
-    const high = Math.max(open, close) * (1 + Math.random() * 0.015)
-    const low = Math.min(open, close) * (1 - Math.random() * 0.015)
-    
-    // 거래량 (상승일에 더 많은 거래량)
-    const baseVolume = Math.floor(Math.random() * 800000) + 200000
-    const volume = close > open ? baseVolume * 1.3 : baseVolume
-    
-    data.push({
-      date: `${date.getMonth() + 1}/${date.getDate()}`,
-      open: Math.round(open * 100) / 100,
-      high: Math.round(high * 100) / 100,
-      low: Math.round(low * 100) / 100,
-      close: Math.round(close * 100) / 100,
-      volume: Math.floor(volume),
-      isUp: close >= open,
-    })
-    
-    closePrice = close
-  }
-  
-  // 마지막 가격을 현재가로 맞춤
-  const lastIdx = data.length - 1
-  data[lastIdx].close = stock.currentPrice
-  data[lastIdx].high = Math.max(data[lastIdx].high, stock.currentPrice)
-  data[lastIdx].isUp = data[lastIdx].close >= data[lastIdx].open
-  
-  // 이동평균선 계산
-  for (let i = 0; i < data.length; i++) {
-    // 5일 이동평균
-    if (i >= 4) {
-      const sum5 = data.slice(i - 4, i + 1).reduce((acc, d) => acc + d.close, 0)
-      data[i].ma5 = Math.round(sum5 / 5 * 100) / 100
-    }
-    // 20일 이동평균
-    if (i >= 19) {
-      const sum20 = data.slice(i - 19, i + 1).reduce((acc, d) => acc + d.close, 0)
-      data[i].ma20 = Math.round(sum20 / 20 * 100) / 100
-    }
-    // 60일 이동평균 (데이터가 충분할 때만)
-    if (i >= 59) {
-      const sum60 = data.slice(i - 59, i + 1).reduce((acc, d) => acc + d.close, 0)
-      data[i].ma60 = Math.round(sum60 / 60 * 100) / 100
-    }
-    // 120일 이동평균 (데이터가 충분할 때만)
-    if (i >= 119) {
-      const sum120 = data.slice(i - 119, i + 1).reduce((acc, d) => acc + d.close, 0)
-      data[i].ma120 = Math.round(sum120 / 120 * 100) / 100
-    }
-  }
-  
-  return data
-}
 
 
 function Stock() {
@@ -144,6 +85,24 @@ function Stock() {
   const [chartPeriod, setChartPeriod] = useState('1D')
   const [isLoadingChart, setIsLoadingChart] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
+  const [zoomLevel, setZoomLevel] = useState(1) // 1: 100%, 2: 50%, 3: 25%
+  
+  // 주식 데이터 state (야후 파이낸스에서 현재가 업데이트)
+  const [koreanStocks, setKoreanStocks] = useState([])
+  const [usStocks, setUsStocks] = useState([])
+  const [exchangeRate, setExchangeRate] = useState(initialExchangeRate)
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const [priceErrors, setPriceErrors] = useState([])
+  
+  // Supabase 로딩 state
+  const [isLoadingStocks, setIsLoadingStocks] = useState(true)
+  const [useSupabase, setUseSupabase] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // 마이그레이션 중복 실행 방지
+  const isMigratingRef = useRef(false)
+  const hasLoadedRef = useRef(false)
   
   // 종목 추가/수정 모달 state
   const [showModal, setShowModal] = useState(false)
@@ -159,6 +118,174 @@ function Stock() {
   })
   
   const allStocks = [...koreanStocks, ...usStocks]
+  
+  // 포트폴리오 비중순 정렬 (평가금액 기준 내림차순)
+  const stocksByWeight = useMemo(() => {
+    return [...allStocks].sort((a, b) => {
+      const valueA = a.currentPrice * a.quantity * (a.currency === 'USD' ? exchangeRate.USDKRW : 1)
+      const valueB = b.currentPrice * b.quantity * (b.currency === 'USD' ? exchangeRate.USDKRW : 1)
+      return valueB - valueA // 내림차순
+    })
+  }, [allStocks, exchangeRate.USDKRW])
+  
+  // 줌 레벨에 따른 차트 데이터 (최근 N개만 표시)
+  const zoomedChartData = useMemo(() => {
+    if (!chartData.length) return []
+    
+    // 줌 레벨별 표시할 데이터 비율
+    const zoomRatios = {
+      1: 1,      // 100% - 전체
+      2: 0.5,    // 50%
+      3: 0.25,   // 25%
+      4: 0.125   // 12.5%
+    }
+    
+    const ratio = zoomRatios[zoomLevel] || 1
+    const visibleCount = Math.max(Math.floor(chartData.length * ratio), 10) // 최소 10개
+    
+    return chartData.slice(-visibleCount)
+  }, [chartData, zoomLevel])
+  
+  // Supabase에서 주식 목록 로드
+  const loadStocksFromDB = useCallback(async () => {
+    // 이미 로드 중이면 무시 (React Strict Mode 중복 호출 방지)
+    if (hasLoadedRef.current) return
+    hasLoadedRef.current = true
+    
+    setIsLoadingStocks(true)
+    try {
+      const { data, error } = await getStocks()
+      
+      if (error) {
+        console.error('Supabase 로드 실패, 더미 데이터 사용:', error)
+        setUseSupabase(false)
+        setKoreanStocks([...initialKoreanStocks])
+        setUsStocks([...initialUsStocks])
+        return
+      }
+      
+      if (!data || data.length === 0) {
+        // 마이그레이션 중복 실행 방지
+        if (isMigratingRef.current) {
+          console.log('마이그레이션이 이미 진행 중입니다.')
+          return
+        }
+        isMigratingRef.current = true
+        
+        // 데이터가 없으면 마이그레이션 실행
+        console.log('주식 데이터가 없습니다. 마이그레이션을 실행합니다...')
+        const result = await migrateStocks(initialKoreanStocks, initialUsStocks)
+        
+        if (result.success) {
+          // 마이그레이션 후 다시 로드
+          const { data: newData } = await getStocks()
+          if (newData) {
+            setKoreanStocks(newData.filter(s => s.market === 'KR'))
+            setUsStocks(newData.filter(s => s.market === 'US'))
+          }
+        } else {
+          // 마이그레이션 실패 시 더미 데이터 사용
+          setUseSupabase(false)
+          setKoreanStocks([...initialKoreanStocks])
+          setUsStocks([...initialUsStocks])
+        }
+      } else {
+        // 데이터 설정
+        setKoreanStocks(data.filter(s => s.market === 'KR'))
+        setUsStocks(data.filter(s => s.market === 'US'))
+      }
+    } catch (err) {
+      console.error('주식 데이터 로드 오류:', err)
+      setUseSupabase(false)
+      setKoreanStocks([...initialKoreanStocks])
+      setUsStocks([...initialUsStocks])
+    } finally {
+      setIsLoadingStocks(false)
+    }
+  }, [])
+
+  // 야후 파이낸스에서 현재가 조회
+  const refreshPrices = useCallback(async () => {
+    setIsLoadingPrices(true)
+    setPriceErrors([])
+    
+    try {
+      // 모든 주식 현재가 조회
+      const allStocksToFetch = [...koreanStocks, ...usStocks]
+      if (allStocksToFetch.length === 0) {
+        setIsLoadingPrices(false)
+        return
+      }
+      const results = await fetchMultipleStockPrices(allStocksToFetch)
+      
+      // 성공한 결과로 현재가 업데이트
+      const priceMap = {}
+      const errors = []
+      
+      results.forEach(result => {
+        if (result.success) {
+          priceMap[result.stockId] = result.currentPrice
+        } else {
+          errors.push(`${result.originalStock?.name || result.symbol}: ${result.error}`)
+        }
+      })
+      
+      // 한국 주식 업데이트
+      setKoreanStocks(prev => prev.map(stock => ({
+        ...stock,
+        currentPrice: priceMap[stock.id] ?? stock.currentPrice
+      })))
+      
+      // 미국 주식 업데이트
+      setUsStocks(prev => prev.map(stock => ({
+        ...stock,
+        currentPrice: priceMap[stock.id] ?? stock.currentPrice
+      })))
+      
+      // 환율 조회
+      const rateResult = await fetchExchangeRate()
+      if (rateResult.success) {
+        setExchangeRate({
+          USDKRW: rateResult.rate,
+          lastUpdated: new Date().toLocaleString('ko-KR')
+        })
+      }
+      
+      setLastUpdated(new Date().toLocaleString('ko-KR'))
+      if (errors.length > 0) {
+        setPriceErrors(errors)
+      }
+      
+    } catch (error) {
+      console.error('Error refreshing prices:', error)
+      setPriceErrors([`가격 조회 실패: ${error.message}`])
+    } finally {
+      setIsLoadingPrices(false)
+    }
+  }, [koreanStocks, usStocks])
+  
+  // 컴포넌트 마운트 시 Supabase에서 주식 목록 로드
+  useEffect(() => {
+    loadStocksFromDB()
+  }, [loadStocksFromDB])
+  
+  // 주식 목록 로드 완료 후 현재가 조회
+  useEffect(() => {
+    if (!isLoadingStocks && (koreanStocks.length > 0 || usStocks.length > 0)) {
+      refreshPrices()
+    }
+  }, [isLoadingStocks])
+
+  // ESC 키로 팝업 닫기
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showModal) {
+        setShowModal(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showModal])
   
   // 종목 추가 팝업 열기
   const openAddModal = () => {
@@ -191,33 +318,139 @@ function Stock() {
   }
   
   // 종목 삭제
-  const handleDelete = () => {
-    if (window.confirm(`'${selectedStock.name}' 종목을 삭제하시겠습니까?`)) {
-      console.log('삭제:', selectedStock)
-      // TODO: Supabase에서 삭제
-      alert('삭제되었습니다. (현재는 더미 데이터라 실제 삭제는 안 됩니다)')
+  const handleDelete = async () => {
+    if (!window.confirm(`'${selectedStock.name}' 종목을 삭제하시겠습니까?`)) return
+    
+    try {
+      if (useSupabase) {
+        const { error } = await deleteStockDB(selectedStock.id)
+        if (error) throw error
+      }
+      
+      // 로컬 상태에서 삭제
+      if (selectedStock.market === 'KR') {
+        setKoreanStocks(prev => prev.filter(s => s.id !== selectedStock.id))
+      } else {
+        setUsStocks(prev => prev.filter(s => s.id !== selectedStock.id))
+      }
+      
       setSelectedStock(null)
+    } catch (err) {
+      console.error('삭제 실패:', err)
+      alert('삭제에 실패했습니다.')
     }
   }
   
   // 종목 저장
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.code || !formData.avgPrice || !formData.quantity) {
       alert('모든 항목을 입력해주세요.')
       return
     }
     
-    const stockData = {
-      ...formData,
-      avgPrice: parseInt(formData.avgPrice),
-      quantity: parseInt(formData.quantity),
-      currentPrice: parseInt(formData.avgPrice) // 현재가는 임시로 매입가와 동일하게
-    }
+    setIsSaving(true)
+    const avgPrice = parseFloat(formData.avgPrice) || 0
+    const quantity = parseFloat(formData.quantity) || 0
     
-    console.log(editMode === 'add' ? '추가:' : '수정:', stockData)
-    // TODO: Supabase에 저장
-    alert(`${editMode === 'add' ? '추가' : '수정'}되었습니다. (현재는 더미 데이터라 실제 저장은 안 됩니다)`)
-    setShowModal(false)
+    try {
+      if (editMode === 'add') {
+        // 새 종목 추가
+        if (useSupabase) {
+          const { data, error } = await addStock({
+            market: formData.market,
+            broker: formData.broker,
+            name: formData.name,
+            code: formData.code,
+            currency: formData.currency,
+            avgPrice,
+            quantity
+          })
+          
+          if (error) throw error
+          
+          // 로컬 상태에 추가
+          if (data.market === 'KR') {
+            setKoreanStocks(prev => [...prev, data])
+          } else {
+            setUsStocks(prev => [...prev, data])
+          }
+        } else {
+          // 더미 데이터 모드
+          const newStock = {
+            id: Date.now(),
+            market: formData.market,
+            broker: formData.broker,
+            name: formData.name,
+            code: formData.code,
+            currency: formData.currency,
+            avgPrice,
+            quantity,
+            currentPrice: avgPrice
+          }
+          
+          if (newStock.market === 'KR') {
+            setKoreanStocks(prev => [...prev, newStock])
+          } else {
+            setUsStocks(prev => [...prev, newStock])
+          }
+        }
+      } else {
+        // 기존 종목 수정
+        if (useSupabase) {
+          const { data, error } = await updateStock(selectedStock.id, {
+            market: formData.market,
+            broker: formData.broker,
+            name: formData.name,
+            code: formData.code,
+            currency: formData.currency,
+            avgPrice,
+            quantity
+          })
+          
+          if (error) throw error
+          
+          // 로컬 상태 업데이트 (시장이 변경될 수 있음)
+          const oldMarket = selectedStock.market
+          const newMarket = data.market
+          
+          // 이전 시장에서 제거
+          if (oldMarket === 'KR') {
+            setKoreanStocks(prev => prev.filter(s => s.id !== selectedStock.id))
+          } else {
+            setUsStocks(prev => prev.filter(s => s.id !== selectedStock.id))
+          }
+          
+          // 새 시장에 추가
+          if (newMarket === 'KR') {
+            setKoreanStocks(prev => [...prev, { ...data, currentPrice: selectedStock.currentPrice }])
+          } else {
+            setUsStocks(prev => [...prev, { ...data, currentPrice: selectedStock.currentPrice }])
+          }
+          
+          setSelectedStock({ ...data, currentPrice: selectedStock.currentPrice })
+        } else {
+          // 더미 데이터 모드
+          const updateFn = (stocks) => stocks.map(s => 
+            s.id === selectedStock.id 
+              ? { ...s, ...formData, avgPrice, quantity, currentPrice: s.currentPrice }
+              : s
+          )
+          
+          if (selectedStock.market === 'KR') {
+            setKoreanStocks(updateFn)
+          } else {
+            setUsStocks(updateFn)
+          }
+        }
+      }
+      
+      setShowModal(false)
+    } catch (err) {
+      console.error('저장 실패:', err)
+      alert('저장에 실패했습니다.')
+    } finally {
+      setIsSaving(false)
+    }
   }
   
   const totalValue = calculateTotalStockValue(allStocks, exchangeRate.USDKRW)
@@ -239,11 +472,32 @@ function Stock() {
     }
   }
 
+  // 증권사+시장 정렬 우선순위
+  const brokerMarketOrder = {
+    'isa-KR': 1,
+    'isa-US': 2,
+    'namu-KR': 3,
+    'namu-US': 4,
+    'toss-KR': 5,
+    'toss-US': 6,
+  }
+
   // 정렬된 종목 목록
   const sortedStocks = useMemo(() => {
     const stocks = [...getStocksToShow()]
     
-    if (!sortConfig.key) return stocks
+    // 기본 정렬: 증권사+시장 우선순위 → 종목명 가나다/ABC순
+    if (!sortConfig.key) {
+      return stocks.sort((a, b) => {
+        const orderA = brokerMarketOrder[`${a.broker}-${a.market}`] || 99
+        const orderB = brokerMarketOrder[`${b.broker}-${b.market}`] || 99
+        
+        if (orderA !== orderB) return orderA - orderB
+        
+        // 같은 그룹 내에서는 종목명으로 정렬
+        return a.name.localeCompare(b.name, 'ko')
+      })
+    }
     
     return stocks.sort((a, b) => {
       let aValue, bValue
@@ -326,19 +580,31 @@ function Stock() {
     )
   }
 
-  // 선택된 종목이 변경되면 차트 데이터 로드
+  // 선택된 종목이 변경되면 차트 데이터 로드 (야후 파이낸스에서 실제 데이터 조회)
   useEffect(() => {
     if (selectedStock) {
       setIsLoadingChart(true)
-      // 실제 API 호출 시뮬레이션 (0.5초 딜레이)
-      const timer = setTimeout(() => {
-        // 120일 이동평균을 표시하려면 최소 120일치 데이터 필요
-        const days = chartPeriod === '30M' ? 30 : chartPeriod === '1D' ? 60 : chartPeriod === '1W' ? 90 : 150
-        const data = generateChartData(selectedStock, days)
-        setChartData(data)
-        setIsLoadingChart(false)
-      }, 300)
-      return () => clearTimeout(timer)
+      
+      const loadChartData = async () => {
+        try {
+          const result = await fetchChartData(selectedStock, chartPeriod)
+          
+          if (result.success && result.data.length > 0) {
+            setChartData(result.data)
+          } else {
+            // 실패 시 빈 배열 설정
+            console.warn('차트 데이터 조회 실패:', result.error)
+            setChartData([])
+          }
+        } catch (error) {
+          console.error('차트 데이터 로드 에러:', error)
+          setChartData([])
+        } finally {
+          setIsLoadingChart(false)
+        }
+      }
+      
+      loadChartData()
     }
   }, [selectedStock, chartPeriod])
 
@@ -383,7 +649,19 @@ function Stock() {
   }
 
   // 최대 거래량 계산
-  const maxVolume = chartData.length > 0 ? Math.max(...chartData.map(d => d.volume || 0)) : 1
+  const maxVolume = zoomedChartData.length > 0 ? Math.max(...zoomedChartData.map(d => d.volume || 0)) : 1
+
+  // 로딩 중 표시
+  if (isLoadingStocks) {
+    return (
+      <div className="fade-in page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+          <p>주식 데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fade-in page-container">
@@ -391,7 +669,37 @@ function Stock() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">주식 관리</h1>
-          <p className="page-subtitle">보유 주식 현황</p>
+          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            보유 주식 현황
+            {useSupabase ? (
+              <span style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '4px', 
+                fontSize: '0.65rem', 
+                color: 'var(--income)',
+                background: 'var(--income-light)',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
+                <Database size={10} />
+                DB 연결됨
+              </span>
+            ) : (
+              <span style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '4px', 
+                fontSize: '0.65rem', 
+                color: 'var(--text-muted)',
+                background: 'var(--bg-secondary)',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
+                로컬 모드
+              </span>
+            )}
+          </p>
         </div>
         <button className="btn btn-primary" onClick={openAddModal}>
           <Plus size={12} />
@@ -444,11 +752,40 @@ function Stock() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
           <span>USD/KRW {exchangeRate.USDKRW.toLocaleString()}원</span>
-          <button className="btn btn-secondary btn-icon" style={{ width: '24px', height: '24px' }}>
-            <RefreshCw size={10} />
+          {lastUpdated && (
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+              ({lastUpdated})
+            </span>
+          )}
+          <button 
+            className="btn btn-secondary btn-icon" 
+            style={{ width: '24px', height: '24px' }}
+            onClick={refreshPrices}
+            disabled={isLoadingPrices}
+            title="현재가 새로고침"
+          >
+            <RefreshCw size={10} style={{ 
+              animation: isLoadingPrices ? 'spin 1s linear infinite' : 'none' 
+            }} />
           </button>
         </div>
       </div>
+      
+      {/* 에러 메시지 표시 */}
+      {priceErrors.length > 0 && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '6px',
+          padding: '8px 12px',
+          marginBottom: '12px',
+          fontSize: '0.7rem',
+          color: '#EF4444'
+        }}>
+          ⚠️ 일부 종목 가격 조회 실패: {priceErrors.slice(0, 3).join(', ')}
+          {priceErrors.length > 3 && ` 외 ${priceErrors.length - 3}건`}
+        </div>
+      )}
 
       {/* 포트폴리오 비중 - 단일 바 (테이블 위에 배치) */}
       <div style={{ 
@@ -461,14 +798,14 @@ function Stock() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h3 style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-primary)' }}>포트폴리오 비중</h3>
-          {/* 범례 */}
+          {/* 범례 (비중 높은 순) */}
           <div style={{ 
             display: 'flex', 
             flexWrap: 'wrap', 
             gap: '6px 12px', 
             justifyContent: 'flex-end'
           }}>
-            {allStocks.map((stock, index) => {
+            {stocksByWeight.map((stock, index) => {
               const value = stock.currentPrice * stock.quantity * (stock.currency === 'USD' ? exchangeRate.USDKRW : 1)
               const percentage = (value / totalValue) * 100
               const color = portfolioColors[index % portfolioColors.length]
@@ -508,7 +845,7 @@ function Stock() {
           </div>
         </div>
         
-        {/* 단일 수평 바 */}
+        {/* 단일 수평 바 (비중 높은 순) */}
         <div 
           style={{ 
             display: 'flex', 
@@ -519,7 +856,7 @@ function Stock() {
             boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
           }}
         >
-          {allStocks.map((stock, index) => {
+          {stocksByWeight.map((stock, index) => {
             const value = stock.currentPrice * stock.quantity * (stock.currency === 'USD' ? exchangeRate.USDKRW : 1)
             const percentage = (value / totalValue) * 100
             const color = portfolioColors[index % portfolioColors.length]
@@ -816,22 +1153,69 @@ function Stock() {
                     })()}
                   </div>
                 </div>
-                {/* 기간 선택 탭 */}
-                <div className="tabs" style={{ transform: 'scale(0.85)', transformOrigin: 'right center' }}>
-                  {[
-                    { key: '30M', label: '30분' },
-                    { key: '1D', label: '1일' },
-                    { key: '1W', label: '1주' },
-                    { key: '1M', label: '1달' },
-                  ].map(({ key, label }) => (
+                {/* 기간 선택 탭 + 줌 버튼 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="tabs" style={{ transform: 'scale(0.85)', transformOrigin: 'right center' }}>
+                    {[
+                      { key: '30M', label: '30분' },
+                      { key: '1D', label: '1일' },
+                      { key: '1W', label: '1주' },
+                      { key: '1M', label: '1달' },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        className={`tab ${chartPeriod === key ? 'active' : ''}`}
+                        onClick={() => {
+                          setChartPeriod(key)
+                          setZoomLevel(1) // 기간 변경 시 줌 초기화
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* 줌 버튼 */}
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                      {Math.round(100 / zoomLevel)}%
+                    </span>
                     <button
-                      key={key}
-                      className={`tab ${chartPeriod === key ? 'active' : ''}`}
-                      onClick={() => setChartPeriod(key)}
+                      onClick={() => setZoomLevel(prev => Math.min(prev + 1, 4))}
+                      disabled={zoomLevel >= 4}
+                      style={{
+                        background: zoomLevel >= 4 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        borderRadius: '4px',
+                        padding: '4px 6px',
+                        cursor: zoomLevel >= 4 ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        opacity: zoomLevel >= 4 ? 0.4 : 1,
+                        color: '#fff'
+                      }}
+                      title="확대"
                     >
-                      {label}
+                      <ZoomIn size={14} />
                     </button>
-                  ))}
+                    <button
+                      onClick={() => setZoomLevel(prev => Math.max(prev - 1, 1))}
+                      disabled={zoomLevel <= 1}
+                      style={{
+                        background: zoomLevel <= 1 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        borderRadius: '4px',
+                        padding: '4px 6px',
+                        cursor: zoomLevel <= 1 ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        opacity: zoomLevel <= 1 ? 0.4 : 1,
+                        color: '#fff'
+                      }}
+                      title="축소"
+                    >
+                      <ZoomOut size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -846,6 +1230,21 @@ function Stock() {
                     color: 'var(--text-muted)'
                   }}>
                     <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>차트 데이터 로딩 중...</span>
+                  </div>
+                ) : zoomedChartData.length === 0 ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    height: '100%',
+                    color: 'var(--text-muted)',
+                    gap: '8px'
+                  }}>
+                    <BarChart3 size={32} strokeWidth={1} />
+                    <span style={{ fontSize: '0.8rem' }}>차트 데이터를 불러올 수 없습니다</span>
+                    <span style={{ fontSize: '0.7rem' }}>야후 파이낸스에서 해당 종목을 지원하지 않을 수 있습니다</span>
                   </div>
                 ) : (
                   <>
@@ -872,7 +1271,7 @@ function Stock() {
                     {/* 캔들스틱 차트 */}
                     <div style={{ flex: 3, minHeight: 0 }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                        <ComposedChart data={zoomedChartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
                           <XAxis 
                             dataKey="date" 
                             axisLine={false}
@@ -882,13 +1281,28 @@ function Stock() {
                             hide
                           />
                           <YAxis 
-                            domain={['auto', 'auto']}
+                            domain={[
+                              () => {
+                                if (!zoomedChartData.length) return 0
+                                const minVal = Math.min(...zoomedChartData.filter(d => d.low).map(d => d.low))
+                                const maxVal = Math.max(...zoomedChartData.filter(d => d.high).map(d => d.high))
+                                const padding = (maxVal - minVal) * 0.05
+                                return Math.floor(minVal - padding)
+                              },
+                              () => {
+                                if (!zoomedChartData.length) return 100
+                                const minVal = Math.min(...zoomedChartData.filter(d => d.low).map(d => d.low))
+                                const maxVal = Math.max(...zoomedChartData.filter(d => d.high).map(d => d.high))
+                                const padding = (maxVal - minVal) * 0.05
+                                return Math.ceil(maxVal + padding)
+                              }
+                            ]}
                             axisLine={false}
                             tickLine={false}
                             tick={{ fontSize: 9, fill: 'var(--text-muted)' }}
                             width={45}
                             tickFormatter={(value) => {
-                              if (selectedStock.currency === 'USD') {
+                              if (selectedStock?.currency === 'USD') {
                                 return `$${value.toFixed(0)}`
                               }
                               return value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value.toFixed(0)
@@ -897,37 +1311,70 @@ function Stock() {
                           />
                           <Tooltip content={<CandlestickTooltip />} />
                           
-                          {/* 캔들스틱 - Bar를 사용한 간단한 구현 */}
+                          {/* 캔들스틱 - Stacked Bar 방식으로 정확한 Y축 위치 구현 */}
+                          {/* 1. 투명한 베이스 바 (0 ~ low) */}
                           <Bar 
-                            dataKey="high" 
+                            dataKey="low" 
+                            stackId="candle"
+                            fill="transparent"
+                          />
+                          {/* 2. 캔들 바 (low ~ high) - shape로 캔들 모양 그림 */}
+                          <Bar 
+                            dataKey="candleRange"
+                            stackId="candle"
                             fill="transparent"
                             shape={(props) => {
                               const { x, y, width, height, payload } = props
-                              if (!payload.open || !payload.close) return null
+                              if (!payload || !payload.open || !payload.close || !payload.high || !payload.low) return null
+                              if (height <= 0 || isNaN(height)) return null
                               
                               const isUp = payload.close >= payload.open
                               const color = isUp ? '#3B82F6' : '#EF4444'
-                              const candleWidth = Math.max(width * 0.7, 3)
+                              const candleWidth = Math.max(width * 0.7, 4)
                               const xCenter = x + width / 2
                               
-                              // 가격 범위 계산
+                              // 가격 범위 (high - low)
                               const priceRange = payload.high - payload.low
-                              if (priceRange === 0) return null
+                              if (priceRange === 0) {
+                                return (
+                                  <line
+                                    x1={x}
+                                    x2={x + width}
+                                    y1={y}
+                                    y2={y}
+                                    stroke={color}
+                                    strokeWidth={2}
+                                  />
+                                )
+                              }
                               
+                              // 픽셀당 가격 비율
                               const pixelPerPrice = height / priceRange
                               
-                              // 위치 계산
+                              // 꼬리 위치 (y는 high 위치, y+height는 low 위치)
                               const wickTop = y
                               const wickBottom = y + height
+                              
+                              // 몸통 위치 계산
                               const bodyTop = y + (payload.high - Math.max(payload.open, payload.close)) * pixelPerPrice
                               const bodyBottom = y + (payload.high - Math.min(payload.open, payload.close)) * pixelPerPrice
+                              const bodyHeight = Math.max(bodyBottom - bodyTop, 2)
                               
                               return (
                                 <g>
-                                  {/* 꼬리 */}
+                                  {/* 꼬리 (위) - high부터 몸통 상단까지 */}
                                   <line
                                     x1={xCenter}
                                     y1={wickTop}
+                                    x2={xCenter}
+                                    y2={bodyTop}
+                                    stroke={color}
+                                    strokeWidth={1}
+                                  />
+                                  {/* 꼬리 (아래) - 몸통 하단부터 low까지 */}
+                                  <line
+                                    x1={xCenter}
+                                    y1={bodyBottom}
                                     x2={xCenter}
                                     y2={wickBottom}
                                     stroke={color}
@@ -938,9 +1385,9 @@ function Stock() {
                                     x={xCenter - candleWidth / 2}
                                     y={bodyTop}
                                     width={candleWidth}
-                                    height={Math.max(bodyBottom - bodyTop, 1)}
+                                    height={bodyHeight}
                                     fill={color}
-                                    stroke={color}
+                                    rx={1}
                                   />
                                 </g>
                               )
@@ -987,7 +1434,7 @@ function Stock() {
                     {/* 거래량 차트 */}
                     <div style={{ flex: 1, minHeight: 0, borderTop: '1px solid var(--border-light)', paddingTop: '4px' }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={chartData} margin={{ top: 0, right: 5, left: 0, bottom: 0 }}>
+                        <ComposedChart data={zoomedChartData} margin={{ top: 0, right: 5, left: 0, bottom: 0 }}>
                           <XAxis 
                             dataKey="date" 
                             axisLine={false}
@@ -1004,7 +1451,7 @@ function Stock() {
                             orientation="right"
                           />
                           <Bar dataKey="volume" maxBarSize={8}>
-                            {chartData.map((entry, index) => (
+                            {zoomedChartData.map((entry, index) => (
                               <Cell 
                                 key={`cell-${index}`} 
                                 fill={entry.isUp ? 'rgba(59, 130, 246, 0.6)' : 'rgba(239, 68, 68, 0.6)'} 
@@ -1256,8 +1703,11 @@ function Stock() {
                 onClick={handleSave}
                 className="btn btn-primary"
                 style={{ flex: 1, padding: '12px' }}
+                disabled={isSaving}
               >
-                {editMode === 'add' ? '추가' : '수정'} 완료
+                {isSaving ? (
+                  <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> 저장 중...</>
+                ) : `${editMode === 'add' ? '추가' : '수정'} 완료`}
               </button>
             </div>
           </div>

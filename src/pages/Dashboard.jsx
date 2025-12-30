@@ -1,25 +1,91 @@
-import { useState } from 'react'
-import { TrendingUp, TrendingDown, ArrowRight, Wallet, BarChart3 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { TrendingUp, TrendingDown, ArrowRight, Wallet, BarChart3, RefreshCw } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import {
   formatCurrency,
   formatPercent,
-  koreanStocks,
-  usStocks,
-  exchangeRate,
+  koreanStocks as initialKoreanStocks,
+  usStocks as initialUsStocks,
+  exchangeRate as initialExchangeRate,
   calculateTotalStockValue,
   calculateTotalStockInvestment,
-  monthlyStats,
   incomeData,
   fixedExpenseData,
   variableExpenseData,
   debtData,
+  assetData,
 } from '../data/dummyData'
+import { fetchMultipleStockPrices, fetchExchangeRate } from '../services/yahooFinance'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 function Dashboard() {
   // 기간 선택: 'all', '2024', '2025' 등
   const [selectedPeriod, setSelectedPeriod] = useState('all')
+  
+  // 실시간 주식 데이터 상태
+  const [koreanStocks, setKoreanStocks] = useState(initialKoreanStocks)
+  const [usStocks, setUsStocks] = useState(initialUsStocks)
+  const [exchangeRate, setExchangeRate] = useState(initialExchangeRate)
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
+
+  // 실시간 가격 조회
+  const refreshPrices = useCallback(async () => {
+    setIsLoadingPrices(true)
+    try {
+      // 모든 주식 가격 조회
+      const allStocks = [...initialKoreanStocks, ...initialUsStocks]
+      const [priceResults, rateResult] = await Promise.all([
+        fetchMultipleStockPrices(allStocks),
+        fetchExchangeRate()
+      ])
+
+      // 가격 업데이트
+      const priceMap = {}
+      priceResults.forEach(result => {
+        if (result.success) {
+          priceMap[result.stockId] = result.currentPrice
+        }
+      })
+
+      setKoreanStocks(prev => prev.map(stock => ({
+        ...stock,
+        currentPrice: priceMap[stock.id] ?? stock.currentPrice
+      })))
+
+      setUsStocks(prev => prev.map(stock => ({
+        ...stock,
+        currentPrice: priceMap[stock.id] ?? stock.currentPrice
+      })))
+
+      // 환율 업데이트
+      if (rateResult.success) {
+        setExchangeRate({
+          USDKRW: rateResult.rate,
+          lastUpdated: new Date().toLocaleString('ko-KR')
+        })
+      }
+
+      setLastUpdated(new Date().toLocaleTimeString('ko-KR'))
+    } catch (error) {
+      console.error('가격 조회 실패:', error)
+    } finally {
+      setIsLoadingPrices(false)
+    }
+  }, [])
+
+  // 컴포넌트 마운트 시 가격 조회 + 1분마다 자동 갱신
+  useEffect(() => {
+    refreshPrices()
+    
+    // 1분(60초)마다 자동 갱신
+    const intervalId = setInterval(() => {
+      refreshPrices()
+    }, 60000)
+    
+    // 컴포넌트 언마운트 시 인터벌 정리
+    return () => clearInterval(intervalId)
+  }, [refreshPrices])
 
   // 사용 가능한 연도 목록 (데이터에서 추출)
   const allDates = [
@@ -29,6 +95,44 @@ function Dashboard() {
     ...debtData.map(d => d.date)
   ]
   const years = [...new Set(allDates.map(date => date?.slice(0, 4)))].filter(Boolean).sort().reverse()
+
+  // 월별 통계 동적 계산
+  const monthlyStats = (() => {
+    const monthMap = {}
+    
+    // 수입 집계
+    incomeData.forEach(item => {
+      if (!item.date) return
+      const yearMonth = item.date.slice(0, 7) // "2024-12"
+      if (!monthMap[yearMonth]) {
+        monthMap[yearMonth] = { income: 0, expense: 0 }
+      }
+      monthMap[yearMonth].income += item.amount
+    })
+    
+    // 지출 집계 (고정 + 변동)
+    ;[...fixedExpenseData, ...variableExpenseData].forEach(item => {
+      if (!item.date) return
+      const yearMonth = item.date.slice(0, 7)
+      if (!monthMap[yearMonth]) {
+        monthMap[yearMonth] = { income: 0, expense: 0 }
+      }
+      monthMap[yearMonth].expense += item.amount
+    })
+    
+    // 정렬된 배열로 변환
+    return Object.entries(monthMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([yearMonth, data]) => {
+        const [year, month] = yearMonth.split('-')
+        return {
+          month: `${year.slice(2)}.${month}`,
+          income: data.income,
+          expense: data.expense,
+          balance: data.income - data.expense
+        }
+      })
+  })()
 
   // 데이터 필터링 함수
   const filterByPeriod = (data) => {
@@ -41,12 +145,17 @@ function Dashboard() {
   const filteredFixedExpense = filterByPeriod(fixedExpenseData)
   const filteredVariableExpense = filterByPeriod(variableExpenseData)
   const filteredDebt = filterByPeriod(debtData)
+  const filteredAsset = filterByPeriod(assetData)
 
   const totalIncome = filteredIncome.reduce((sum, item) => sum + item.amount, 0)
   const totalFixedExpense = filteredFixedExpense.reduce((sum, item) => sum + item.amount, 0)
   const totalVariableExpense = filteredVariableExpense.reduce((sum, item) => sum + item.amount, 0)
   const totalExpense = totalFixedExpense + totalVariableExpense
-  const cashBalance = totalIncome - totalExpense
+  
+  // 현금 잔액: 자산 데이터에서 계산 (입금 - 출금)
+  const totalDeposit = filteredAsset.filter(a => a.type === 'deposit').reduce((sum, a) => sum + a.amount, 0)
+  const totalWithdraw = filteredAsset.filter(a => a.type === 'withdraw').reduce((sum, a) => sum + a.amount, 0)
+  const cashBalance = totalDeposit - totalWithdraw
 
   // 부채 계산
   const totalBorrowed = filteredDebt.filter(d => d.type === 'borrow').reduce((sum, d) => sum + d.amount, 0)
@@ -193,17 +302,48 @@ function Dashboard() {
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: '8px', 
+          justifyContent: 'space-between',
           marginBottom: '10px',
           paddingLeft: '4px'
         }}>
-          <BarChart3 size={16} style={{ color: 'var(--accent)' }} />
-          <h2 style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-            투자 자산
-          </h2>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            (현재 보유)
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 size={16} style={{ color: 'var(--accent)' }} />
+            <h2 style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>
+              투자 자산
+            </h2>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              (실시간)
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {lastUpdated && (
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                {lastUpdated} 기준
+              </span>
+            )}
+            <button
+              onClick={refreshPrices}
+              disabled={isLoadingPrices}
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                cursor: isLoadingPrices ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.7rem',
+                color: 'var(--text-secondary)',
+                opacity: isLoadingPrices ? 0.6 : 1,
+              }}
+            >
+              <RefreshCw size={12} style={{ 
+                animation: isLoadingPrices ? 'spin 1s linear infinite' : 'none' 
+              }} />
+              새로고침
+            </button>
+          </div>
         </div>
         
         <div className="summary-cards" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
