@@ -201,63 +201,86 @@ function Settings() {
                 예산 목표
               </h3>
             </div>
-            <div className="card-body">
-              <p style={{ fontWeight: '500', fontSize: '0.85rem', marginBottom: '4px' }}>월 지출 목표</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginBottom: '12px' }}>
-                가계부 페이지에서 지출 진행률을 확인할 수 있습니다
-              </p>
-              <div style={{ position: 'relative', marginBottom: '12px' }}>
-                <input
-                  type="text"
-                  value={settings.budgetGoal.toLocaleString()}
-                  onChange={handleBudgetChange}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    paddingRight: '40px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '1.1rem',
-                    fontWeight: '600',
-                    textAlign: 'right',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)'
-                  }}
+            <div className="card-body" style={{ padding: 0 }}>
+              {/* 예산 목표 사용 여부 */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '12px 16px',
+                borderBottom: '1px solid var(--border)'
+              }}>
+                <div>
+                  <p style={{ fontWeight: '500', fontSize: '0.85rem' }}>예산 목표 사용</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>가계부에서 지출 진행률 표시</p>
+                </div>
+                <Toggle 
+                  isOn={settings.useBudgetGoal} 
+                  onToggle={() => updateSetting('useBudgetGoal', !settings.useBudgetGoal)} 
                 />
-                <span style={{
-                  position: 'absolute',
-                  right: '16px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.9rem'
-                }}>원</span>
               </div>
               
-              {/* 금액 조절 버튼 */}
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {[
-                  { amount: 10000, label: '+1만' },
-                  { amount: 100000, label: '+10만' },
-                  { amount: 1000000, label: '+100만' }
-                ].map(({ amount, label }) => (
-                  <button
-                    key={amount}
-                    onClick={() => updateSetting('budgetGoal', settings.budgetGoal + amount)}
-                    className="btn btn-secondary"
-                    style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => updateSetting('budgetGoal', 0)}
-                  className="btn btn-secondary"
-                  style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--expense)' }}
-                >
-                  초기화
-                </button>
-              </div>
+              {/* 목표 금액 설정 (사용 시에만 표시) */}
+              {settings.useBudgetGoal && (
+                <div style={{ padding: '12px 16px' }}>
+                  <p style={{ fontWeight: '500', fontSize: '0.85rem', marginBottom: '4px' }}>월 지출 목표</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginBottom: '12px' }}>
+                    이 금액을 초과하면 경고가 표시됩니다
+                  </p>
+                  <div style={{ position: 'relative', marginBottom: '12px' }}>
+                    <input
+                      type="text"
+                      value={settings.budgetGoal.toLocaleString()}
+                      onChange={handleBudgetChange}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        paddingRight: '40px',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        fontSize: '1.1rem',
+                        fontWeight: '600',
+                        textAlign: 'right',
+                        background: 'var(--bg-primary)',
+                        color: 'var(--text-primary)'
+                      }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      right: '16px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.9rem'
+                    }}>원</span>
+                  </div>
+                  
+                  {/* 금액 조절 버튼 */}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[
+                      { amount: 10000, label: '+1만' },
+                      { amount: 100000, label: '+10만' },
+                      { amount: 1000000, label: '+100만' }
+                    ].map(({ amount, label }) => (
+                      <button
+                        key={amount}
+                        onClick={() => updateSetting('budgetGoal', settings.budgetGoal + amount)}
+                        className="btn btn-secondary"
+                        style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => updateSetting('budgetGoal', 0)}
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--expense)' }}
+                    >
+                      초기화
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 # 🗂️ Pocket 프로젝트 구조
 
-> **작성일**: 2025-12-29  
+> **작성일**: 2025-12-30  
 > **프로젝트**: 개인 자산 관리 앱 (Pocket)
 
 ---
@@ -20,10 +20,15 @@ Pocket App (http://localhost:3000)
 │   ├─ 파일: src/pages/Budget.jsx
 │   └─ 설명: 수입/고정지출/변동지출 관리 (3열 구조)
 │
+├─ 🏦 자산 관리 (Asset)
+│   ├─ 경로: /asset
+│   ├─ 파일: src/pages/Asset.jsx
+│   └─ 설명: CMA 통장 입출금 관리
+│
 ├─ 💳 부채 관리 (Debt)
 │   ├─ 경로: /debt
 │   ├─ 파일: src/pages/Debt.jsx
-│   └─ 설명: 대출, 카드론 등 부채 추적
+│   └─ 설명: 마이너스 통장 대출/상환 추적
 │
 ├─ 📈 주식 관리 (Stock)
 │   ├─ 경로: /stock
@@ -41,7 +46,7 @@ Pocket App (http://localhost:3000)
 ## 📁 전체 프로젝트 디렉토리 구조
 
 ```
-C:\work\Pocket\
+D:\work\Pocket\
 │
 ├─ 📄 설정 파일
 │   ├─ .env                    # Supabase 환경변수 (보안 파일)
@@ -56,10 +61,12 @@ C:\work\Pocket\
 │   ├─ README.md               # 프로젝트 소개
 │   ├─ home.md                 # 환경 설정 체크리스트
 │   ├─ prd.md                  # 제품 요구사항 문서
-│   ├─ backup_251229.md        # 백업 문서
+│   ├─ backup_251229.md        # 12/29 백업
+│   ├─ backup_251230.md        # 12/30 백업
 │   └─ project-structure.md    # 이 문서 (프로젝트 구조)
 │
 ├─ 📂 public\                  # 정적 파일
+│   └─ favicon.svg             # 파비콘
 │
 └─ 📂 src\                     # 소스 코드
     │
@@ -69,12 +76,16 @@ C:\work\Pocket\
     ├─ 📂 pages\               # 페이지 컴포넌트
     │   ├─ Dashboard.jsx       # 🏠 대시보드 페이지
     │   ├─ Budget.jsx          # 📒 가계부 페이지
+    │   ├─ Asset.jsx           # 🏦 자산 관리 페이지
     │   ├─ Debt.jsx            # 💳 부채 관리 페이지
     │   ├─ Stock.jsx           # 📈 주식 관리 페이지
     │   └─ Settings.jsx        # ⚙️ 설정 페이지
     │
     ├─ 📂 components\          # 재사용 가능한 컴포넌트
-    │   └─ Layout.jsx          # 전체 레이아웃 (네비게이션 포함)
+    │   └─ Layout.jsx          # 전체 레이아웃 (사이드바 포함)
+    │
+    ├─ 📂 context\             # React Context
+    │   └─ SettingsContext.jsx # 전역 설정 (다크모드, 시작페이지 등)
     │
     ├─ 📂 data\                # 데이터 관리
     │   └─ dummyData.js        # 더미 데이터 (개발용)
@@ -89,7 +100,7 @@ C:\work\Pocket\
 
 ### 1. 진입점 (main.jsx)
 ```
-main.jsx → React Router 설정 → App.jsx 로드
+main.jsx → SettingsProvider → React Router → App.jsx 로드
 ```
 
 ### 2. 라우팅 (App.jsx)
@@ -98,6 +109,7 @@ Routes
   └─ Route path="/" → Layout (공통 레이아웃)
       ├─ index → Dashboard (/)
       ├─ budget → Budget (/budget)
+      ├─ asset → Asset (/asset)
       ├─ debt → Debt (/debt)
       ├─ stock → Stock (/stock)
       └─ settings → Settings (/settings)
@@ -106,13 +118,13 @@ Routes
 ### 3. 레이아웃 (Layout.jsx)
 ```
 Layout
-├─ 상단 네비게이션 바
-├─ 사이드바 메뉴
-│   ├─ 대시보드 (/)
-│   ├─ 가계부 (/budget)
-│   ├─ 부채 관리 (/debt)
-│   ├─ 주식 관리 (/stock)
-│   └─ 설정 (/settings)
+├─ 사이드바 메뉴 (다크 테마)
+│   ├─ 🏠 대시보드 (/)
+│   ├─ 📒 가계부 (/budget)
+│   ├─ 🏦 자산 관리 (/asset)
+│   ├─ 💳 부채 관리 (/debt)
+│   ├─ 📈 주식 관리 (/stock)
+│   └─ ⚙️ 설정 (/settings)
 └─ 메인 콘텐츠 영역 (각 페이지 렌더링)
 ```
 
@@ -172,34 +184,39 @@ http://localhost:3000
 ### 페이지 컴포넌트
 
 #### 1. Dashboard.jsx (대시보드)
-- 전체 자산 요약
-- 월별 수입/지출 차트
-- 부채 현황
-- 주식 포트폴리오 요약
+- 기간 선택 탭 (전체/2025/2024)
+- 기본 재무: 현금잔액, 수입, 지출, 부채, 저축률
+- 투자 자산: 평가금액, 투자원금, 평가손익, 순자산
 
 #### 2. Budget.jsx (가계부)
 - **3열 구조**: 수입 | 고정지출 | 변동지출
-- 항목 추가/수정/삭제
-- 카테고리별 분류
-- 월별 집계
+- 입금일/출금일 컬럼, 비고 상세 팝업
+- 예산 목표 진행률 표시
+- 월별 선택 기능
 
-#### 3. Debt.jsx (부채 관리)
-- 부채 목록 관리
-- 상환 일정 추적
-- 이자 계산
-- 상환 진행률 표시
+#### 3. Asset.jsx (자산 관리) 🆕
+- CMA 통장 입출금 관리
+- 잔액 추이 차트 (녹색)
+- 저축 유지율, 월평균 저축
+- 거래 내역 테이블
 
-#### 4. Stock.jsx (주식 관리)
-- 보유 주식 목록
-- 매수/매도 기록
-- 수익률 계산
-- 포트폴리오 분석
+#### 4. Debt.jsx (부채 관리)
+- 마이너스 통장 대출/상환 관리
+- 잔액 추이 차트 (빨간색)
+- 상환률 진행 표시
+- 거래 내역 테이블
 
-#### 5. Settings.jsx (설정)
-- 사용자 프로필
-- 알림 설정
-- 데이터 백업/복원
-- 테마 설정
+#### 5. Stock.jsx (주식 관리)
+- 탭 구조: 전체 | 한국 | 미국
+- 이동평균선 (5/20/60/120일)
+- 차트 기간: 30분/1일/1주/1달
+- 포트폴리오 비중 차트
+
+#### 6. Settings.jsx (설정)
+- 다크모드 토글
+- 시작 페이지 설정
+- 주식 기본 탭 설정
+- 예산 목표 설정
 
 ---
 
@@ -226,5 +243,5 @@ git push
 
 ---
 
-**마지막 업데이트**: 2025-12-29
+**마지막 업데이트**: 2025-12-30
 

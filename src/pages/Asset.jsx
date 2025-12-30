@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Plus, ArrowUpCircle, ArrowDownCircle, X, Edit3, Trash2 } from 'lucide-react'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import {
-  debtData,
-  debtHistory,
+  assetData,
+  assetHistory,
   formatCurrency,
-  calculateDebtBalance,
+  calculateAssetBalance,
 } from '../data/dummyData'
 
-function Debt() {
+function Asset() {
   // 팝업 state
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null) // null이면 추가, 값이 있으면 수정
@@ -16,20 +16,20 @@ function Debt() {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     day: '1',
-    type: 'borrow',
+    type: 'deposit',
     amount: '',
     description: ''
   })
   
   // 데이터 state (실제로는 서버에서 관리)
-  const [dataList, setDataList] = useState([...debtData])
+  const [dataList, setDataList] = useState([...assetData])
 
   const currentBalance = dataList.reduce((balance, item) => {
-    return item.type === 'borrow' ? balance + item.amount : balance - item.amount
+    return item.type === 'deposit' ? balance + item.amount : balance - item.amount
   }, 0)
-  const totalBorrowed = dataList.filter(d => d.type === 'borrow').reduce((sum, d) => sum + d.amount, 0)
-  const totalRepaid = dataList.filter(d => d.type === 'repay').reduce((sum, d) => sum + d.amount, 0)
-  const repaymentRate = totalBorrowed > 0 ? (totalRepaid / totalBorrowed) * 100 : 0
+  const totalDeposited = dataList.filter(d => d.type === 'deposit').reduce((sum, d) => sum + d.amount, 0)
+  const totalWithdrawn = dataList.filter(d => d.type === 'withdraw').reduce((sum, d) => sum + d.amount, 0)
+  const savingsRate = totalDeposited > 0 ? ((currentBalance / totalDeposited) * 100) : 0
 
   // 추가 팝업 열기
   const openAddModal = () => {
@@ -38,7 +38,7 @@ function Debt() {
       year: new Date().getFullYear(),
       month: new Date().getMonth() + 1,
       day: '1',
-      type: 'borrow',
+      type: 'deposit',
       amount: '',
       description: ''
     })
@@ -106,20 +106,6 @@ function Debt() {
     }
   }
 
-  // 월평균 상환 계산
-  const avgRepayment = dataList.filter(d => d.type === 'repay').length > 0
-    ? Math.round(totalRepaid / dataList.filter(d => d.type === 'repay').length)
-    : 0
-
-  // 예상 완납일 계산
-  const getExpectedPayoffDate = () => {
-    if (currentBalance <= 0 || avgRepayment <= 0) return '완납'
-    const monthsToPayoff = Math.ceil(currentBalance / avgRepayment)
-    const payoffDate = new Date()
-    payoffDate.setMonth(payoffDate.getMonth() + monthsToPayoff)
-    return `${payoffDate.getFullYear()}년 ${payoffDate.getMonth() + 1}월`
-  }
-
   const MiniTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -132,7 +118,7 @@ function Debt() {
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
           <div style={{ color: '#94A3B8' }}>{label}</div>
-          <div style={{ color: '#F43F5E', fontWeight: '600' }}>{formatCurrency(payload[0].value)}</div>
+          <div style={{ color: '#10B981', fontWeight: '600' }}>{formatCurrency(payload[0].value)}</div>
         </div>
       )
     }
@@ -144,8 +130,8 @@ function Debt() {
       {/* 헤더 */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="page-title">부채 관리</h1>
-          <p className="page-subtitle">마이너스 통장 내역</p>
+          <h1 className="page-title">자산 관리</h1>
+          <p className="page-subtitle">CMA 통장 내역</p>
         </div>
         <button className="btn btn-primary" onClick={openAddModal}>
           <Plus size={12} />
@@ -160,19 +146,19 @@ function Debt() {
           <p className="summary-value">{formatCurrency(currentBalance)}</p>
         </div>
         <div className="summary-card">
-          <p className="summary-label">총 대출</p>
-          <p className="summary-value amount expense">{formatCurrency(totalBorrowed)}</p>
+          <p className="summary-label">총 입금</p>
+          <p className="summary-value amount income">{formatCurrency(totalDeposited)}</p>
         </div>
         <div className="summary-card">
-          <p className="summary-label">총 상환</p>
-          <p className="summary-value amount income">{formatCurrency(totalRepaid)}</p>
+          <p className="summary-label">총 출금</p>
+          <p className="summary-value amount expense">{formatCurrency(totalWithdrawn)}</p>
         </div>
         <div className="summary-card">
-          <p className="summary-label">상환률</p>
-          <p className="summary-value" style={{ color: 'var(--accent)' }}>{repaymentRate.toFixed(1)}%</p>
+          <p className="summary-label">저축 유지율</p>
+          <p className="summary-value" style={{ color: 'var(--income)' }}>{savingsRate.toFixed(1)}%</p>
           <div style={{ marginTop: '6px' }}>
             <div className="progress-bar">
-              <div className="progress-fill accent" style={{ width: `${Math.min(repaymentRate, 100)}%` }} />
+              <div className="progress-fill" style={{ width: `${Math.min(savingsRate, 100)}%`, background: 'var(--income)' }} />
             </div>
           </div>
         </div>
@@ -189,16 +175,16 @@ function Debt() {
             <div className="card-body" style={{ padding: '8px 12px' }}>
               <div className="chart-mini">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={debtHistory}>
+                  <AreaChart data={assetHistory}>
                     <defs>
-                      <linearGradient id="debtGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#F43F5E" stopOpacity={0.3}/>
-                        <stop offset="100%" stopColor="#F43F5E" stopOpacity={0}/>
+                      <linearGradient id="assetGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity={0.3}/>
+                        <stop offset="100%" stopColor="#10B981" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 9 }} />
                     <Tooltip content={<MiniTooltip />} />
-                    <Area type="monotone" dataKey="balance" stroke="#F43F5E" strokeWidth={1.5} fill="url(#debtGrad)" />
+                    <Area type="monotone" dataKey="balance" stroke="#10B981" strokeWidth={1.5} fill="url(#assetGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -212,20 +198,20 @@ function Debt() {
             <div className="card-body">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>대출 횟수</span>
-                  <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>{dataList.filter(d => d.type === 'borrow').length}회</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>입금 횟수</span>
+                  <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>{dataList.filter(d => d.type === 'deposit').length}회</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>상환 횟수</span>
-                  <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>{dataList.filter(d => d.type === 'repay').length}회</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>출금 횟수</span>
+                  <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>{dataList.filter(d => d.type === 'withdraw').length}회</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>월평균 상환</span>
-                  <span style={{ fontWeight: '600', fontSize: '0.8rem', color: 'var(--income)' }}>{formatCurrency(avgRepayment)}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>월평균 저축</span>
+                  <span style={{ fontWeight: '600', fontSize: '0.8rem', color: 'var(--income)' }}>{formatCurrency(Math.round(totalDeposited / Math.max(dataList.filter(d => d.type === 'deposit').length, 1)))}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>예상 완납일</span>
-                  <span style={{ fontWeight: '600', fontSize: '0.8rem', color: 'var(--accent)' }}>{getExpectedPayoffDate()}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>목표 달성률</span>
+                  <span style={{ fontWeight: '600', fontSize: '0.8rem', color: 'var(--accent)' }}>{Math.round(currentBalance / 200000)}% (2천만원)</span>
                 </div>
               </div>
             </div>
@@ -259,15 +245,15 @@ function Debt() {
                         display: 'inline-flex', 
                         alignItems: 'center', 
                         gap: '3px',
-                        color: item.type === 'borrow' ? 'var(--expense)' : 'var(--income)',
+                        color: item.type === 'deposit' ? 'var(--income)' : 'var(--expense)',
                         fontWeight: '500'
                       }}>
-                        {item.type === 'borrow' ? <ArrowDownCircle size={12} /> : <ArrowUpCircle size={12} />}
-                        {item.type === 'borrow' ? '대출' : '상환'}
+                        {item.type === 'deposit' ? <ArrowDownCircle size={12} /> : <ArrowUpCircle size={12} />}
+                        {item.type === 'deposit' ? '입금' : '출금'}
                       </span>
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <span className={`amount ${item.type === 'borrow' ? 'expense' : 'income'}`}>
+                      <span className={`amount ${item.type === 'deposit' ? 'income' : 'expense'}`}>
                         {formatCurrency(item.amount)}
                       </span>
                     </td>
@@ -357,15 +343,15 @@ function Debt() {
               alignItems: 'center',
               padding: '16px 20px',
               borderBottom: '1px solid var(--border)',
-              background: 'var(--expense-light)',
+              background: 'var(--income-light)',
               borderRadius: '12px 12px 0 0'
             }}>
               <div>
-                <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--expense)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--income)' }}>
                   {editingItem ? '거래 수정' : '거래 추가'}
                 </h3>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  마이너스 통장 거래 내역
+                  CMA 통장 거래 내역
                 </p>
               </div>
               <button
@@ -451,23 +437,23 @@ function Debt() {
                     <input
                       type="radio"
                       name="type"
-                      value="borrow"
-                      checked={formData.type === 'borrow'}
+                      value="deposit"
+                      checked={formData.type === 'deposit'}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      style={{ accentColor: 'var(--expense)' }}
+                      style={{ accentColor: 'var(--income)' }}
                     />
-                    <span style={{ color: 'var(--expense)', fontWeight: '500' }}>대출</span>
+                    <span style={{ color: 'var(--income)', fontWeight: '500' }}>입금</span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="type"
-                      value="repay"
-                      checked={formData.type === 'repay'}
+                      value="withdraw"
+                      checked={formData.type === 'withdraw'}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      style={{ accentColor: 'var(--income)' }}
+                      style={{ accentColor: 'var(--expense)' }}
                     />
-                    <span style={{ color: 'var(--income)', fontWeight: '500' }}>상환</span>
+                    <span style={{ color: 'var(--expense)', fontWeight: '500' }}>출금</span>
                   </label>
                 </div>
               </div>
@@ -614,4 +600,4 @@ function Debt() {
   )
 }
 
-export default Debt
+export default Asset

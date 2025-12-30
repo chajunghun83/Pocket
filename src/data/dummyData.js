@@ -1,43 +1,50 @@
 // 더미 데이터 - 개발 및 디자인 확인용
 
-export const currentMonth = '2025년 1월'
+export const currentMonth = '2025년 12월'
 
 // 가계부 - 수입
 export const incomeData = [
-  { id: 1, name: '월급', amount: 4500000, date: '2025-01-25', completed: true, memo: '회사 급여 (세후)' },
-  { id: 2, name: '부업 수입', amount: 500000, date: '2025-01-15', completed: true, memo: '프리랜서 외주 작업\n- 웹사이트 리뉴얼\n- 디자인 수정' },
-  { id: 3, name: '이자 수익', amount: 12500, date: '2025-01-20', completed: true, memo: '적금 이자 (신한은행)' },
+  { id: 1, name: '월급', amount: 4500000, date: '2025-12-25', completed: true, memo: '회사 급여 (세후)' },
+  { id: 2, name: '부업 수입', amount: 500000, date: '2025-12-15', completed: true, memo: '프리랜서 외주 작업\n- 웹사이트 리뉴얼\n- 디자인 수정' },
+  { id: 3, name: '이자 수익', amount: 12500, date: '2025-12-20', completed: true, memo: '적금 이자 (신한은행)' },
 ]
 
 // 가계부 - 고정 지출
 export const fixedExpenseData = [
-  { id: 1, name: '월세', amount: 800000, date: '2025-01-05', completed: true, memo: '원룸 월세\n계좌: 국민 123-456-789' },
-  { id: 2, name: '관리비', amount: 150000, date: '2025-01-10', completed: true, memo: '아파트 관리비 (수도, 전기 포함)' },
-  { id: 3, name: '통신비 (휴대폰)', amount: 65000, date: '2025-01-08', completed: true, memo: 'SKT 5G 요금제' },
-  { id: 4, name: '인터넷', amount: 35000, date: '2025-01-15', completed: false, memo: 'KT 기가 인터넷' },
-  { id: 5, name: '보험료', amount: 200000, date: '2025-01-20', completed: false, memo: '삼성생명 종합보험\n- 실비 포함\n- 암보험 특약' },
-  { id: 6, name: '넷플릭스', amount: 17000, date: '2025-01-10', completed: true, memo: '프리미엄 요금제 (4K)' },
-  { id: 7, name: '유튜브 프리미엄', amount: 14900, date: '2025-01-12', completed: true, memo: '가족 요금제' },
+  { id: 1, name: '월세', amount: 800000, date: '2025-12-05', completed: true, memo: '원룸 월세\n계좌: 국민 123-456-789' },
+  { id: 2, name: '관리비', amount: 150000, date: '2025-12-10', completed: true, memo: '아파트 관리비 (수도, 전기 포함)' },
+  { id: 3, name: '통신비 (휴대폰)', amount: 65000, date: '2025-12-08', completed: true, memo: 'SKT 5G 요금제' },
+  { id: 4, name: '인터넷', amount: 35000, date: '2025-12-15', completed: false, memo: 'KT 기가 인터넷' },
+  { id: 5, name: '보험료', amount: 200000, date: '2025-12-20', completed: false, memo: '삼성생명 종합보험\n- 실비 포함\n- 암보험 특약' },
+  { id: 6, name: '넷플릭스', amount: 17000, date: '2025-12-10', completed: true, memo: '프리미엄 요금제 (4K)' },
+  { id: 7, name: '유튜브 프리미엄', amount: 14900, date: '2025-12-12', completed: true, memo: '가족 요금제' },
 ]
 
 // 가계부 - 변동 지출 (카드)
 export const variableExpenseData = [
-  { id: 1, name: '신한카드', amount: 523000, date: '2025-01-15', completed: true, memo: '식비, 교통비, 쇼핑\n- 마트 장보기 150,000\n- 외식 120,000\n- 교통비 53,000\n- 기타 200,000' },
-  { id: 2, name: '현대카드', amount: 312000, date: '2025-01-18', completed: false, memo: '온라인 쇼핑\n- 쿠팡 212,000\n- 네이버 100,000' },
-  { id: 3, name: '삼성카드', amount: 189000, date: '2025-01-22', completed: false, memo: '주유비, 차량 유지비' },
+  { id: 1, name: '신한카드', amount: 523000, date: '2025-12-15', completed: true, memo: '식비, 교통비, 쇼핑\n- 마트 장보기 150,000\n- 외식 120,000\n- 교통비 53,000\n- 기타 200,000' },
+  { id: 2, name: '현대카드', amount: 312000, date: '2025-12-18', completed: false, memo: '온라인 쇼핑\n- 쿠팡 212,000\n- 네이버 100,000' },
+  { id: 3, name: '삼성카드', amount: 189000, date: '2025-12-22', completed: false, memo: '주유비, 차량 유지비' },
+]
+
+// 자산 관리 - CMA 통장
+export const assetData = [
+  { id: 1, type: 'deposit', amount: 2000000, date: '2025-01-05', description: '1월 초 저축' },
+  { id: 2, type: 'deposit', amount: 1500000, date: '2025-01-10', description: '추가 저축' },
+  { id: 3, type: 'withdraw', amount: 500000, date: '2025-01-15', description: '생활비 출금' },
+  { id: 4, type: 'deposit', amount: 1000000, date: '2025-01-25', description: '월급 저축' },
+]
+
+// 자산 잔액 추이
+export const assetHistory = [
+  { month: '1월', balance: 4000000 },
 ]
 
 // 부채 관리 - 마이너스 통장
 export const debtData = [
-  { id: 1, type: 'borrow', amount: 3000000, date: '2024-06-15', description: '자동차 수리비' },
-  { id: 2, type: 'repay', amount: 500000, date: '2024-07-25', description: '7월 상환' },
-  { id: 3, type: 'repay', amount: 500000, date: '2024-08-25', description: '8월 상환' },
-  { id: 4, type: 'borrow', amount: 1000000, date: '2024-09-10', description: '의료비' },
-  { id: 5, type: 'repay', amount: 500000, date: '2024-09-25', description: '9월 상환' },
-  { id: 6, type: 'repay', amount: 500000, date: '2024-10-25', description: '10월 상환' },
-  { id: 7, type: 'repay', amount: 500000, date: '2024-11-25', description: '11월 상환' },
-  { id: 8, type: 'repay', amount: 500000, date: '2024-12-25', description: '12월 상환' },
-  { id: 9, type: 'repay', amount: 500000, date: '2025-01-10', description: '1월 상환' },
+  { id: 1, type: 'borrow', amount: 3000000, date: '2025-01-05', description: '자동차 수리비' },
+  { id: 2, type: 'repay', amount: 500000, date: '2025-01-15', description: '1차 상환' },
+  { id: 3, type: 'repay', amount: 500000, date: '2025-01-25', description: '2차 상환' },
 ]
 
 // 주식 - 국장 (한국)
@@ -154,14 +161,7 @@ export const monthlyStats = [
 
 // 부채 잔액 추이
 export const debtHistory = [
-  { month: '6월', balance: 3000000 },
-  { month: '7월', balance: 2500000 },
-  { month: '8월', balance: 2000000 },
-  { month: '9월', balance: 2500000 },
-  { month: '10월', balance: 2000000 },
-  { month: '11월', balance: 1500000 },
-  { month: '12월', balance: 1000000 },
-  { month: '1월', balance: 500000 },
+  { month: '1월', balance: 2000000 },
 ]
 
 // 유틸리티 함수들
@@ -209,6 +209,12 @@ export const calculateBalance = () => {
 export const calculateDebtBalance = () => {
   return debtData.reduce((balance, item) => {
     return item.type === 'borrow' ? balance + item.amount : balance - item.amount
+  }, 0)
+}
+
+export const calculateAssetBalance = () => {
+  return assetData.reduce((balance, item) => {
+    return item.type === 'deposit' ? balance + item.amount : balance - item.amount
   }, 0)
 }
 

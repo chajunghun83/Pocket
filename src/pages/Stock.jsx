@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { RefreshCw, TrendingUp, TrendingDown, Plus, Edit2, BarChart3, Loader2, ChevronUp, ChevronDown } from 'lucide-react'
+import { RefreshCw, TrendingUp, TrendingDown, Plus, Edit2, BarChart3, Loader2, ChevronUp, ChevronDown, X, Trash2 } from 'lucide-react'
 import { 
   ComposedChart, 
   Bar, 
@@ -145,7 +145,80 @@ function Stock() {
   const [isLoadingChart, setIsLoadingChart] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
   
+  // 종목 추가/수정 모달 state
+  const [showModal, setShowModal] = useState(false)
+  const [editMode, setEditMode] = useState('add') // 'add' | 'edit'
+  const [formData, setFormData] = useState({
+    broker: 'namu',
+    market: 'KR',
+    name: '',
+    code: '',
+    currency: 'KRW',
+    avgPrice: '',
+    quantity: ''
+  })
+  
   const allStocks = [...koreanStocks, ...usStocks]
+  
+  // 종목 추가 팝업 열기
+  const openAddModal = () => {
+    setEditMode('add')
+    setFormData({
+      broker: 'namu',
+      market: 'KR',
+      name: '',
+      code: '',
+      currency: 'KRW',
+      avgPrice: '',
+      quantity: ''
+    })
+    setShowModal(true)
+  }
+  
+  // 종목 수정 팝업 열기
+  const openEditModal = (stock) => {
+    setEditMode('edit')
+    setFormData({
+      broker: stock.broker,
+      market: stock.market,
+      name: stock.name,
+      code: stock.code,
+      currency: stock.currency,
+      avgPrice: stock.avgPrice.toString(),
+      quantity: stock.quantity.toString()
+    })
+    setShowModal(true)
+  }
+  
+  // 종목 삭제
+  const handleDelete = () => {
+    if (window.confirm(`'${selectedStock.name}' 종목을 삭제하시겠습니까?`)) {
+      console.log('삭제:', selectedStock)
+      // TODO: Supabase에서 삭제
+      alert('삭제되었습니다. (현재는 더미 데이터라 실제 삭제는 안 됩니다)')
+      setSelectedStock(null)
+    }
+  }
+  
+  // 종목 저장
+  const handleSave = () => {
+    if (!formData.name || !formData.code || !formData.avgPrice || !formData.quantity) {
+      alert('모든 항목을 입력해주세요.')
+      return
+    }
+    
+    const stockData = {
+      ...formData,
+      avgPrice: parseInt(formData.avgPrice),
+      quantity: parseInt(formData.quantity),
+      currentPrice: parseInt(formData.avgPrice) // 현재가는 임시로 매입가와 동일하게
+    }
+    
+    console.log(editMode === 'add' ? '추가:' : '수정:', stockData)
+    // TODO: Supabase에 저장
+    alert(`${editMode === 'add' ? '추가' : '수정'}되었습니다. (현재는 더미 데이터라 실제 저장은 안 됩니다)`)
+    setShowModal(false)
+  }
   
   const totalValue = calculateTotalStockValue(allStocks, exchangeRate.USDKRW)
   const totalInvestment = calculateTotalStockInvestment(allStocks, exchangeRate.USDKRW)
@@ -320,7 +393,7 @@ function Stock() {
           <h1 className="page-title">주식 관리</h1>
           <p className="page-subtitle">보유 주식 현황</p>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={openAddModal}>
           <Plus size={12} />
           종목 추가
         </button>
@@ -689,6 +762,45 @@ function Stock() {
                     <span style={{ fontSize: '1rem' }}>{selectedStock.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
                     <h3 className="card-title" style={{ fontSize: '0.95rem' }}>{selectedStock.name}</h3>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{selectedStock.code}</span>
+                    {/* 수정/삭제 버튼 */}
+                    <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
+                      <button
+                        onClick={() => openEditModal(selectedStock)}
+                        style={{
+                          background: 'var(--accent)',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          color: 'white',
+                          fontSize: '0.65rem'
+                        }}
+                      >
+                        <Edit2 size={10} />
+                        수정
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        style={{
+                          background: 'var(--expense)',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          color: 'white',
+                          fontSize: '0.65rem'
+                        }}
+                      >
+                        <Trash2 size={10} />
+                        삭제
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
                     <span style={{ fontSize: '1.2rem', fontWeight: '700' }}>
@@ -963,6 +1075,194 @@ function Stock() {
           )}
         </div>
       </div>
+
+      {/* 종목 추가/수정 모달 */}
+      {showModal && (
+        <>
+          <div
+            onClick={() => setShowModal(false)}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)', zIndex: 1000, animation: 'fadeIn 0.2s ease'
+            }}
+          />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            background: 'var(--bg-card)', borderRadius: '12px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            zIndex: 1001, width: '480px', maxHeight: '90vh', overflow: 'auto',
+            animation: 'slideUp 0.2s ease'
+          }}>
+            {/* 헤더 */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '16px 20px', borderBottom: '1px solid var(--border)',
+              background: 'var(--accent-light)', borderRadius: '12px 12px 0 0'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--accent)' }}>
+                  {editMode === 'add' ? '종목 추가' : '종목 수정'}
+                </h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  보유 주식 정보를 입력하세요
+                </p>
+              </div>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* 폼 내용 */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* 증권사 */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                  증권사
+                </label>
+                <select
+                  value={formData.broker}
+                  onChange={(e) => setFormData({ ...formData, broker: e.target.value })}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px',
+                    border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                    fontSize: '0.9rem', color: 'var(--text-primary)'
+                  }}
+                >
+                  <option value="namu">🌳 나무증권</option>
+                  <option value="toss">💙 토스</option>
+                  <option value="isa">🏦 ISA</option>
+                </select>
+              </div>
+
+              {/* 국가 */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                  국가
+                </label>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="market"
+                      value="KR"
+                      checked={formData.market === 'KR'}
+                      onChange={(e) => setFormData({ ...formData, market: e.target.value, currency: 'KRW' })}
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>🇰🇷 국내 (KRW)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="market"
+                      value="US"
+                      checked={formData.market === 'US'}
+                      onChange={(e) => setFormData({ ...formData, market: e.target.value, currency: 'USD' })}
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>🇺🇸 미국 (USD)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 종목명 & 종목코드 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                    종목명
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="예) 삼성전자"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                      fontSize: '0.9rem', color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                    종목코드 / 티커
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="예) 005930 또는 AAPL"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                      fontSize: '0.9rem', color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 매입가 */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                  매입가 ({formData.market === 'KR' ? '₩ 원화' : '$ 달러'})
+                </label>
+                <input
+                  type="text"
+                  placeholder="매입가를 입력하세요"
+                  value={formData.avgPrice ? parseInt(formData.avgPrice).toLocaleString() : ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
+                    setFormData({ ...formData, avgPrice: value })
+                  }}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px',
+                    border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                    fontSize: '0.9rem', color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
+
+              {/* 수량 */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                  보유수량 (주)
+                </label>
+                <input
+                  type="text"
+                  placeholder="보유 수량을 입력하세요"
+                  value={formData.quantity ? parseInt(formData.quantity).toLocaleString() : ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
+                    setFormData({ ...formData, quantity: value })
+                  }}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px',
+                    border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                    fontSize: '0.9rem', color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 하단 버튼 */}
+            <div style={{ padding: '12px 20px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowModal(false)}
+                className="btn btn-secondary"
+                style={{ flex: 1, padding: '12px' }}
+              >
+                닫기
+              </button>
+              <button
+                onClick={handleSave}
+                className="btn btn-primary"
+                style={{ flex: 1, padding: '12px' }}
+              >
+                {editMode === 'add' ? '추가' : '수정'} 완료
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

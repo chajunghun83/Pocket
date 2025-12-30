@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   Wallet, 
+  Landmark,
   CreditCard, 
   TrendingUp, 
   Settings,
@@ -14,6 +15,7 @@ import { useSettings } from '../context/SettingsContext'
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: '대시보드' },
   { path: '/budget', icon: Wallet, label: '가계부' },
+  { path: '/asset', icon: Landmark, label: '자산 관리' },
   { path: '/debt', icon: CreditCard, label: '부채 관리' },
   { path: '/stock', icon: TrendingUp, label: '주식 관리' },
   { path: '/settings', icon: Settings, label: '설정' },
