@@ -2,10 +2,14 @@
  * 야후 파이낸스 API 서비스
  * - 국장/미장 주식 현재가 조회
  * - 환율 정보 조회
+ * 
+ * 로컬 개발: Vite 프록시 사용 (/api/yahoo)
+ * 프로덕션: Netlify Functions 사용 (/.netlify/functions/yahoo-finance)
  */
 
-// 야후 파이낸스 API 기본 URL (Vite 프록시를 통해 접근)
-const YAHOO_API_BASE = '/api/yahoo'
+// 환경에 따라 API URL 결정
+const isDevelopment = import.meta.env.DEV
+const YAHOO_API_BASE = isDevelopment ? '/api/yahoo' : '/.netlify/functions/yahoo-finance'
 
 /**
  * 야후 파이낸스 심볼 변환
@@ -27,7 +31,15 @@ export const getYahooSymbol = (stock) => {
  */
 export const fetchStockPrice = async (symbol) => {
   try {
-    const url = `${YAHOO_API_BASE}/v8/finance/chart/${symbol}?interval=1d&range=1d`
+    let url
+    if (isDevelopment) {
+      // 로컬: Vite 프록시
+      url = `${YAHOO_API_BASE}/v8/finance/chart/${symbol}?interval=1d&range=1d`
+    } else {
+      // 프로덕션: Netlify Function
+      url = `${YAHOO_API_BASE}?symbol=${encodeURIComponent(symbol)}`
+    }
+    
     const response = await fetch(url)
     
     if (!response.ok) {
@@ -78,8 +90,16 @@ export const fetchMultipleStockPrices = async (stocks) => {
  */
 export const fetchExchangeRate = async () => {
   try {
-    const symbol = 'USDKRW=X'
-    const url = `${YAHOO_API_BASE}/v8/finance/chart/${symbol}?interval=1d&range=1d`
+    let url
+    if (isDevelopment) {
+      // 로컬: Vite 프록시
+      const symbol = 'USDKRW=X'
+      url = `${YAHOO_API_BASE}/v8/finance/chart/${symbol}?interval=1d&range=1d`
+    } else {
+      // 프로덕션: Netlify Function
+      url = `${YAHOO_API_BASE}?type=exchange`
+    }
+    
     const response = await fetch(url)
     
     if (!response.ok) {
@@ -159,7 +179,15 @@ export const fetchChartData = async (stock, period = '1D') => {
     const symbol = getYahooSymbol(stock)
     const { interval, range } = CHART_PERIODS[period] || CHART_PERIODS['1D']
     
-    const url = `${YAHOO_API_BASE}/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`
+    let url
+    if (isDevelopment) {
+      // 로컬: Vite 프록시
+      url = `${YAHOO_API_BASE}/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`
+    } else {
+      // 프로덕션: Netlify Function (차트 데이터는 심볼에 interval과 range 포함)
+      url = `${YAHOO_API_BASE}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&range=${range}`
+    }
+    
     const response = await fetch(url)
     
     if (!response.ok) {
@@ -247,4 +275,3 @@ export const fetchChartData = async (stock, period = '1D') => {
     return { success: false, error: error.message, data: [] }
   }
 }
-
