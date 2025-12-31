@@ -1,7 +1,8 @@
 // Netlify Function: 야후 파이낸스 API 프록시
 // CORS 문제를 해결하기 위한 서버리스 함수
+// Node.js 18+ 에서는 fetch가 기본 제공됨
 
-export async function handler(event, context) {
+exports.handler = async function(event, context) {
   // CORS 헤더
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -38,6 +39,8 @@ export async function handler(event, context) {
       url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${chartInterval}&range=${chartRange}`
     }
 
+    console.log('Fetching URL:', url)
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -45,6 +48,7 @@ export async function handler(event, context) {
     })
 
     if (!response.ok) {
+      console.log('Yahoo API error:', response.status, response.statusText)
       return {
         statusCode: response.status,
         headers,
