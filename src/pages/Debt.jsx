@@ -427,11 +427,11 @@ function Debt() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '12%', textAlign: 'center' }}>날짜</th>
-                  <th style={{ width: '12%', textAlign: 'center' }}>구분</th>
-                  <th style={{ width: '18%', textAlign: 'center' }}>금액</th>
-                  <th style={{ width: '38%', textAlign: 'center' }}>내용</th>
-                  <th style={{ width: '20%', textAlign: 'center' }}>관리</th>
+                  <th style={{ width: '14%', textAlign: 'center' }}>날짜</th>
+                  <th style={{ width: '14%', textAlign: 'center' }}>구분</th>
+                  <th style={{ width: '20%', textAlign: 'center' }}>금액</th>
+                  <th style={{ width: '34%', textAlign: 'center' }}>내용</th>
+                  <th style={{ width: '18%', textAlign: 'center' }}>관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -446,7 +446,8 @@ function Debt() {
                         alignItems: 'center', 
                         gap: '3px',
                         color: item.type === 'borrow' ? 'var(--expense)' : 'var(--income)',
-                        fontWeight: '500'
+                        fontWeight: '500',
+                        whiteSpace: 'nowrap'
                       }}>
                         {item.type === 'borrow' ? <ArrowDownCircle size={12} /> : <ArrowUpCircle size={12} />}
                         {item.type === 'borrow' ? '대출' : '상환'}
@@ -459,42 +460,22 @@ function Debt() {
                     </td>
                     <td style={{ textAlign: 'center' }}>{item.description}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'nowrap' }}>
                         <button
                           onClick={() => openEditModal(item)}
-                          style={{
-                            background: 'var(--accent)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '4px 8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            color: 'white',
-                            fontSize: '0.7rem'
-                          }}
+                          className="btn-action btn-edit"
+                          title="수정"
                         >
-                          <Edit3 size={10} />
-                          수정
+                          <Edit3 size={12} />
+                          <span className="btn-text">수정</span>
                         </button>
                         <button
                           onClick={() => handleDelete(item)}
-                          style={{
-                            background: 'var(--expense)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '4px 8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            color: 'white',
-                            fontSize: '0.7rem'
-                          }}
+                          className="btn-action btn-delete"
+                          title="삭제"
                         >
-                          <Trash2 size={10} />
-                          삭제
+                          <Trash2 size={12} />
+                          <span className="btn-text">삭제</span>
                         </button>
                       </div>
                     </td>
@@ -524,20 +505,9 @@ function Debt() {
             }}
           />
           {/* 모달 */}
-          <div style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'var(--bg-card)',
-            borderRadius: '12px',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-            zIndex: 1001,
-            width: '400px',
-            animation: 'slideUp 0.2s ease'
-          }}>
+          <div className="modal-container">
             {/* 헤더 */}
-            <div style={{
+            <div className="modal-header" style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -569,13 +539,13 @@ function Debt() {
             </div>
             
             {/* 폼 */}
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* 날짜 */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
                   날짜
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="date-select-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <select
                     value={formData.year}
                     onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
@@ -681,7 +651,7 @@ function Debt() {
                     color: 'var(--text-primary)'
                   }}
                 />
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <div className="amount-buttons" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, amount: String((parseInt(formData.amount) || 0) + 10000) })}
@@ -772,7 +742,7 @@ function Debt() {
             </div>
             
             {/* 하단 버튼 */}
-            <div style={{ 
+            <div className="modal-footer" style={{ 
               padding: '16px 20px', 
               borderTop: '1px solid var(--border)',
               display: 'flex',

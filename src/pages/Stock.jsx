@@ -744,27 +744,32 @@ function Stock() {
       </div>
 
       {/* 탭 + 환율 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexShrink: 0 }}>
+      <div className="stock-header">
         <div className="tabs">
           <button className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>전체</button>
-          <button className={`tab ${activeTab === 'kr' ? 'active' : ''}`} onClick={() => setActiveTab('kr')}>🇰🇷 국내</button>
-          <button className={`tab ${activeTab === 'us' ? 'active' : ''}`} onClick={() => setActiveTab('us')}>🇺🇸 미국</button>
+          <button className={`tab ${activeTab === 'kr' ? 'active' : ''}`} onClick={() => setActiveTab('kr')}>🇰🇷</button>
+          <button className={`tab ${activeTab === 'us' ? 'active' : ''}`} onClick={() => setActiveTab('us')}>🇺🇸</button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-          <span>USD/KRW {exchangeRate.USDKRW.toLocaleString()}원</span>
-          {lastUpdated && (
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-              ({lastUpdated})
-            </span>
-          )}
+        <div className="stock-exchange-info">
+          <span className="exchange-rate">₩{exchangeRate.USDKRW.toLocaleString()}/USD</span>
           <button 
-            className="btn btn-secondary btn-icon" 
-            style={{ width: '24px', height: '24px' }}
             onClick={refreshPrices}
             disabled={isLoadingPrices}
             title="현재가 새로고침"
+            style={{ 
+              width: '28px', 
+              height: '28px',
+              borderRadius: '6px',
+              border: '1px solid var(--accent)',
+              background: 'var(--accent-light)',
+              color: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
           >
-            <RefreshCw size={10} style={{ 
+            <RefreshCw size={14} style={{ 
               animation: isLoadingPrices ? 'spin 1s linear infinite' : 'none' 
             }} />
           </button>
@@ -788,24 +793,12 @@ function Stock() {
       )}
 
       {/* 포트폴리오 비중 - 단일 바 (테이블 위에 배치) */}
-      <div style={{ 
-        background: 'var(--bg-card)', 
-        border: '1px solid var(--border)', 
-        borderRadius: '10px', 
-        padding: '12px 16px',
-        marginBottom: '12px',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h3 style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-primary)' }}>포트폴리오 비중</h3>
-          {/* 범례 (비중 높은 순) */}
-          <div style={{ 
-            display: 'flex', 
-            flexWrap: 'wrap', 
-            gap: '6px 12px', 
-            justifyContent: 'flex-end'
-          }}>
-            {stocksByWeight.map((stock, index) => {
+      <div className="portfolio-section">
+        <div className="portfolio-header">
+          <h3 className="portfolio-title">포트폴리오 비중</h3>
+          {/* 범례 (비중 높은 순) - PC에서만 표시 */}
+          <div className="portfolio-legend">
+            {stocksByWeight.slice(0, 6).map((stock, index) => {
               const value = stock.currentPrice * stock.quantity * (stock.currency === 'USD' ? exchangeRate.USDKRW : 1)
               const percentage = (value / totalValue) * 100
               const color = portfolioColors[index % portfolioColors.length]
@@ -813,35 +806,27 @@ function Stock() {
               return (
                 <div 
                   key={stock.id}
+                  className="legend-item"
                   style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px',
-                    fontSize: '0.65rem',
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
                     opacity: hoveredStock && hoveredStock !== stock.id ? 0.5 : 1,
-                    transition: 'opacity 0.2s',
                   }}
                   onMouseEnter={() => setHoveredStock(stock.id)}
                   onMouseLeave={() => setHoveredStock(null)}
                 >
                   <span 
-                    style={{ 
-                      width: '8px', 
-                      height: '8px', 
-                      borderRadius: '2px', 
-                      backgroundColor: color,
-                      flexShrink: 0
-                    }} 
+                    className="legend-color"
+                    style={{ backgroundColor: color }} 
                   />
-                  <span>{stock.name}</span>
-                  <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
+                  <span className="legend-name">{stock.name}</span>
+                  <span className="legend-percent">
                     {percentage.toFixed(1)}%
                   </span>
                 </div>
               )
             })}
+            {stocksByWeight.length > 6 && (
+              <span className="legend-more">+{stocksByWeight.length - 6}</span>
+            )}
           </div>
         </div>
         
@@ -940,11 +925,62 @@ function Stock() {
       </div>
 
       {/* 콘텐츠 영역 - 종목 목록 + 차트 */}
-      <div className="content-area" style={{ flexDirection: 'row', gap: '12px' }}>
-        {/* 왼쪽: 종목 목록 */}
+      <div className="content-area stock-content">
+        {/* 종목 목록 */}
         <div className="card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, overflow: 'auto' }}>
-            <table className="data-table">
+            
+            {/* 모바일용 카드 리스트 */}
+            <div className="stock-card-list">
+              {sortedStocks.map((stock) => {
+                const { profit, profitRate } = calculateStockProfit(stock)
+                const isSelected = selectedStock?.id === stock.id
+                const broker = BROKERS[stock.broker] || BROKERS.namu
+                
+                return (
+                  <div 
+                    key={stock.id}
+                    className={`stock-card ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleStockClick(stock)}
+                  >
+                    <div className="stock-card-header">
+                      <div className="stock-card-info">
+                        <span className="stock-card-market" style={{ 
+                          color: stock.market === 'KR' ? '#EF4444' : '#3B82F6',
+                          background: stock.market === 'KR' ? '#FEE2E2' : '#DBEAFE'
+                        }}>
+                          {stock.market === 'KR' ? '🇰🇷' : '🇺🇸'}
+                        </span>
+                        <span className="stock-card-name">{stock.name}</span>
+                        <span className="stock-card-broker" style={{ color: broker.color }}>
+                          {broker.icon}
+                        </span>
+                      </div>
+                      <div className={`stock-card-profit ${profit >= 0 ? 'profit' : 'loss'}`}>
+                        {formatPercent(profitRate)}
+                      </div>
+                    </div>
+                    <div className="stock-card-body">
+                      <div className="stock-card-row">
+                        <span className="stock-card-label">현재가</span>
+                        <span className="stock-card-value">{formatCurrency(stock.currentPrice, stock.currency)}</span>
+                      </div>
+                      <div className="stock-card-row">
+                        <span className="stock-card-label">평단가</span>
+                        <span className="stock-card-value" style={{ color: 'var(--text-muted)' }}>{formatCurrency(stock.avgPrice, stock.currency)}</span>
+                      </div>
+                      <div className="stock-card-row">
+                        <span className="stock-card-label">보유</span>
+                        <span className="stock-card-value">{stock.quantity}주</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            
+            {/* PC용 테이블 */}
+            <table className="data-table stock-table-pc">
               <thead>
                 <tr>
                   <th 
@@ -1093,129 +1129,87 @@ function Stock() {
           {selectedStock ? (
             <>
               {/* 차트 헤더 */}
-              <div className="card-header" style={{ borderBottom: '1px solid var(--border)' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1rem' }}>{selectedStock.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
-                    <h3 className="card-title" style={{ fontSize: '0.95rem' }}>{selectedStock.name}</h3>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{selectedStock.code}</span>
-                    {/* 수정/삭제 버튼 */}
-                    <div style={{ display: 'flex', gap: '4px', marginLeft: '8px' }}>
-                      <button
-                        onClick={() => openEditModal(selectedStock)}
-                        style={{
-                          background: 'var(--accent)',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          color: 'white',
-                          fontSize: '0.65rem'
-                        }}
-                      >
-                        <Edit2 size={10} />
-                        수정
-                      </button>
-                      <button
-                        onClick={handleDelete}
-                        style={{
-                          background: 'var(--expense)',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          color: 'white',
-                          fontSize: '0.65rem'
-                        }}
-                      >
-                        <Trash2 size={10} />
-                        삭제
-                      </button>
-                    </div>
+              <div className="chart-header">
+                {/* 종목 정보 */}
+                <div className="chart-stock-info">
+                  <div className="chart-stock-name">
+                    <span className="chart-market-flag">{selectedStock.market === 'KR' ? '🇰🇷' : '🇺🇸'}</span>
+                    <span className="chart-name">{selectedStock.name}</span>
+                    <span className="chart-code">{selectedStock.code}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
-                    <span style={{ fontSize: '1.2rem', fontWeight: '700' }}>
+                  <div className="chart-price-info">
+                    <span className="chart-price">
                       {formatCurrency(selectedStock.currentPrice, selectedStock.currency)}
                     </span>
                     {(() => {
                       const { profit, profitRate } = calculateStockProfit(selectedStock)
                       return (
-                        <span className={`amount ${profit >= 0 ? 'profit' : 'loss'}`} style={{ fontSize: '0.8rem' }}>
+                        <span className={`chart-profit ${profit >= 0 ? 'profit' : 'loss'}`}>
                           {profit >= 0 ? '+' : ''}{formatPercent(profitRate)}
                         </span>
                       )
                     })()}
                   </div>
                 </div>
-                {/* 기간 선택 탭 + 줌 버튼 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div className="tabs" style={{ transform: 'scale(0.85)', transformOrigin: 'right center' }}>
-                    {[
-                      { key: '30M', label: '30분' },
-                      { key: '1D', label: '1일' },
-                      { key: '1W', label: '1주' },
-                      { key: '1M', label: '1달' },
-                    ].map(({ key, label }) => (
-                      <button
-                        key={key}
-                        className={`tab ${chartPeriod === key ? 'active' : ''}`}
-                        onClick={() => {
-                          setChartPeriod(key)
-                          setZoomLevel(1) // 기간 변경 시 줌 초기화
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {/* 줌 버튼 */}
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                      {Math.round(100 / zoomLevel)}%
-                    </span>
+                
+                {/* 수정/삭제 버튼 */}
+                <div className="chart-actions">
+                  <button
+                    onClick={() => openEditModal(selectedStock)}
+                    className="btn-action btn-edit"
+                    title="수정"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="btn-action btn-delete"
+                    title="삭제"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* 기간 선택 + 줌 */}
+              <div className="chart-controls">
+                <div className="tabs chart-period-tabs">
+                  {[
+                    { key: '30M', label: '30분' },
+                    { key: '1D', label: '1일' },
+                    { key: '1W', label: '1주' },
+                    { key: '1M', label: '1달' },
+                  ].map(({ key, label }) => (
                     <button
-                      onClick={() => setZoomLevel(prev => Math.min(prev + 1, 4))}
-                      disabled={zoomLevel >= 4}
-                      style={{
-                        background: zoomLevel >= 4 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        borderRadius: '4px',
-                        padding: '4px 6px',
-                        cursor: zoomLevel >= 4 ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        opacity: zoomLevel >= 4 ? 0.4 : 1,
-                        color: '#fff'
+                      key={key}
+                      className={`tab ${chartPeriod === key ? 'active' : ''}`}
+                      onClick={() => {
+                        setChartPeriod(key)
+                        setZoomLevel(1)
                       }}
-                      title="확대"
                     >
-                      <ZoomIn size={14} />
+                      {label}
                     </button>
-                    <button
-                      onClick={() => setZoomLevel(prev => Math.max(prev - 1, 1))}
-                      disabled={zoomLevel <= 1}
-                      style={{
-                        background: zoomLevel <= 1 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        borderRadius: '4px',
-                        padding: '4px 6px',
-                        cursor: zoomLevel <= 1 ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        opacity: zoomLevel <= 1 ? 0.4 : 1,
-                        color: '#fff'
-                      }}
-                      title="축소"
-                    >
-                      <ZoomOut size={14} />
-                    </button>
-                  </div>
+                  ))}
+                </div>
+                <div className="chart-zoom">
+                  <span className="zoom-level">{Math.round(100 / zoomLevel)}%</span>
+                  <button
+                    onClick={() => setZoomLevel(prev => Math.min(prev + 1, 4))}
+                    disabled={zoomLevel >= 4}
+                    className="zoom-btn"
+                    title="확대"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
+                  <button
+                    onClick={() => setZoomLevel(prev => Math.max(prev - 1, 1))}
+                    disabled={zoomLevel <= 1}
+                    className="zoom-btn"
+                    title="축소"
+                  >
+                    <ZoomOut size={14} />
+                  </button>
                 </div>
               </div>
 
@@ -1533,14 +1527,9 @@ function Stock() {
               background: 'rgba(0, 0, 0, 0.5)', zIndex: 1000, animation: 'fadeIn 0.2s ease'
             }}
           />
-          <div style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            background: 'var(--bg-card)', borderRadius: '12px', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-            zIndex: 1001, width: '480px', maxHeight: '90vh', overflow: 'auto',
-            animation: 'slideUp 0.2s ease'
-          }}>
+          <div className="modal-container">
             {/* 헤더 */}
-            <div style={{
+            <div className="modal-header" style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '16px 20px', borderBottom: '1px solid var(--border)',
               background: 'var(--accent-light)', borderRadius: '12px 12px 0 0'
@@ -1559,7 +1548,7 @@ function Stock() {
             </div>
 
             {/* 폼 내용 */}
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* 증권사 */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
@@ -1612,7 +1601,7 @@ function Stock() {
               </div>
 
               {/* 종목명 & 종목코드 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
                     종목명
@@ -1691,7 +1680,7 @@ function Stock() {
             </div>
 
             {/* 하단 버튼 */}
-            <div style={{ padding: '12px 20px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
+            <div className="modal-footer" style={{ padding: '12px 20px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => setShowModal(false)}
                 className="btn btn-secondary"

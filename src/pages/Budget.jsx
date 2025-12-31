@@ -701,21 +701,15 @@ function Budget() {
       </div>
 
       {/* 3열 그리드: 수입 / 고정지출 / 변동지출 */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(3, 1fr)', 
-        gap: '12px', 
-        flex: 1, 
-        minHeight: 0 
-      }}>
+      <div className="budget-columns">
         {/* 수입 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div className="card budget-column">
           <div className="card-header" style={{ background: 'var(--income-light)' }}>
             <h3 className="card-title" style={{ color: 'var(--income)' }}>
               💰 수입
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--income)' }}>
+              <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--income)' }}>
                 {formatCurrency(totalIncome)}
               </span>
               <button 
@@ -728,20 +722,20 @@ function Budget() {
               </button>
             </div>
           </div>
-          <div style={{ flex: 1, overflow: 'auto' }}>
+          <div className="card-body" style={{ flex: 1, overflow: 'auto', padding: 0 }}>
             {renderTable(filteredIncome, 'income', '입금일')}
           </div>
         </div>
 
         {/* 고정 지출 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div className="card budget-column">
           <div className="card-header" style={{ background: 'var(--expense-light)' }}>
             <h3 className="card-title" style={{ color: 'var(--expense)' }}>
               📌 고정 지출
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {filteredFixed.length > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{fixedCompleted}/{fixedTotal}</span>}
-              <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
+              <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
                 {formatCurrency(totalFixed)}
               </span>
               <button 
@@ -754,20 +748,20 @@ function Budget() {
               </button>
             </div>
           </div>
-          <div style={{ flex: 1, overflow: 'auto' }}>
+          <div className="card-body" style={{ flex: 1, overflow: 'auto', padding: 0 }}>
             {renderTable(filteredFixed, 'fixed', '출금일')}
           </div>
         </div>
 
         {/* 변동 지출 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div className="card budget-column">
           <div className="card-header" style={{ background: 'var(--expense-light)' }}>
             <h3 className="card-title" style={{ color: 'var(--expense)' }}>
               💳 변동 지출
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {filteredVariable.length > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{variableCompleted}/{variableTotal}</span>}
-              <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
+              <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
                 {formatCurrency(totalVariable)}
               </span>
               <button 
@@ -780,7 +774,7 @@ function Budget() {
               </button>
             </div>
           </div>
-          <div style={{ flex: 1, overflow: 'auto' }}>
+          <div className="card-body" style={{ flex: 1, overflow: 'auto', padding: 0 }}>
             {renderTable(filteredVariable, 'variable', '출금일')}
           </div>
         </div>
@@ -804,20 +798,9 @@ function Budget() {
             }}
           />
           {/* 모달 */}
-          <div style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'var(--bg-card)',
-            borderRadius: '12px',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-            zIndex: 1001,
-            width: '420px',
-            animation: 'slideUp 0.2s ease'
-          }}>
+          <div className="modal-container">
             {/* 헤더 */}
-            <div style={{
+            <div className="modal-header" style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -849,7 +832,7 @@ function Budget() {
             </div>
             
             {/* 폼 */}
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* 날짜 */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
@@ -925,7 +908,7 @@ function Budget() {
                     color: 'var(--text-primary)'
                   }}
                 />
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <div className="amount-buttons" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                   {[10000, 100000, 1000000].map(amount => (
                     <button
                       key={amount}
@@ -989,7 +972,7 @@ function Budget() {
             </div>
             
             {/* 하단 버튼 */}
-            <div style={{ 
+            <div className="modal-footer" style={{ 
               padding: '16px 20px', 
               borderTop: '1px solid var(--border)',
               display: 'flex',
