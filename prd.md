@@ -419,17 +419,19 @@
   - Row Level Security (데이터 보안)
 
 ### 인증
-- **Supabase Auth** (간단한 인증)
+- **Supabase Auth** (간단한 인증) ← 2026-01-01 완료!
   - 이메일/비밀번호 로그인만 사용
   - 개인 사용 목적 (단일 계정)
-  - 회원가입 없이 환경변수로 계정 설정 가능
+  - 회원가입 없이 Supabase 대시보드에서 계정 생성
+  - PrivateRoute로 인증된 사용자만 접근 가능
 
 ### 호스팅 & 배포
-- **Vercel** (프론트엔드 호스팅)
-  - GitHub 연동 자동 배포
+- **Netlify** (프론트엔드 호스팅) ← 2026-01-01 배포 완료!
+  - GitHub 연동 자동 배포 (CI/CD)
   - 무료 HTTPS
   - 글로벌 CDN
-  - 도메인: `프로젝트명.vercel.app`
+  - 도메인: https://cjh-pocket.netlify.app
+  - `git push` → 자동 빌드/배포
 
 ### 외부 API
 - **야후 파이낸스 (Yahoo Finance)** (국장/미장 주식 현재가 - 웹 크롤링)
@@ -626,7 +628,8 @@ git config --global user.email
 4. ✅ 주식 관리 페이지 (국장/미장 탭, 포트폴리오)
 5. ✅ 설정 페이지
 6. ✅ Supabase 연동 (실제 데이터 저장/조회) ← **2025-12-31 완료!**
-7. [ ] 로그인 기능 구현 (다음 단계)
+7. ✅ 로그인 기능 구현 ← **2026-01-01 완료!**
+8. ✅ Netlify 배포 (CI/CD) ← **2026-01-01 완료!**
 
 #### Phase 3: 가계부 기능 개발 (3-5일)
 1. 수입 입력 화면
@@ -755,13 +758,14 @@ git config --global user.email
 - [x] 부채관리 CRUD ✅ (debtService.js)
 - [x] 주식관리 CRUD ✅ (stockService.js)
 - [x] 자동 마이그레이션 ✅
-- [ ] 로그인 기능 (다음 단계)
+- [x] 로그인 기능 ✅ (AuthContext.jsx, Login.jsx) ← **2026-01-01 완료!**
 
-#### ⬜ 배포
-- [ ] Vercel 배포 성공
-- [ ] 웹에서 접속 확인
-- [ ] 모바일에서 접속 확인
-- [ ] 기능 테스트 완료
+#### ✅ 배포 (2026-01-01 완료!)
+- [x] Netlify 배포 성공 ✅
+- [x] GitHub 연동 자동 배포 (CI/CD) ✅
+- [x] 환경변수 설정 ✅
+- [x] 웹에서 접속 확인 ✅
+- **URL**: https://cjh-pocket.netlify.app
 
 ---
 
