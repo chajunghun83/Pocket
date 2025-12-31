@@ -541,7 +541,7 @@ function Stock() {
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
       return 0
     })
-  }, [activeTab, sortConfig])
+  }, [activeTab, sortConfig, koreanStocks, usStocks, exchangeRate.USDKRW])
 
   // 정렬 핸들러
   const handleSort = (key) => {

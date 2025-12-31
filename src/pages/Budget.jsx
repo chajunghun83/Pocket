@@ -32,6 +32,8 @@ function Budget() {
   // 마이그레이션 중복 실행 방지
   const isMigratingRef = useRef(false)
   const hasLoadedRef = useRef(false)
+  const isCopyingRef = useRef(false) // 복사 중복 실행 방지
+  const copiedMonthsRef = useRef(new Set()) // 이미 복사한 월 기록
   
   // 수정/추가 모달 state
   const [editModal, setEditModal] = useState(null) // { type: 'income'|'fixed'|'variable', item: object|null, isNew: boolean }
@@ -144,7 +146,6 @@ function Budget() {
   const handleToggleCompleted = async (type, id, e) => {
     e.stopPropagation() // 더블클릭 이벤트 방지
     
-    // 현재 상태 찾기
     const list = type === 'income' ? incomeList : type === 'fixed' ? fixedList : variableList
     const item = list.find(i => i.id === id)
     if (!item) return
@@ -176,6 +177,142 @@ function Budget() {
     }
   }
   
+  // 특정 월의 데이터 존재 여부 확인
+  const hasDataForMonth = (year, month) => {
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`
+    return incomeList.some(item => item.date.startsWith(monthKey)) ||
+           fixedList.some(item => item.date.startsWith(monthKey)) ||
+           variableList.some(item => item.date.startsWith(monthKey))
+  }
+  
+  // 이전 달 중 가장 최근에 데이터가 있는 달 찾기
+  const findPreviousMonthWithData = (year, month) => {
+    let checkYear = year
+    let checkMonth = month - 1
+    
+    for (let i = 0; i < 24; i++) {
+      if (checkMonth < 1) {
+        checkMonth = 12
+        checkYear--
+      }
+      
+      if (hasDataForMonth(checkYear, checkMonth)) {
+        return { year: checkYear, month: checkMonth }
+      }
+      
+      checkMonth--
+    }
+    return null
+  }
+  
+  // 전달 데이터를 새 달로 복사
+  const copyPreviousMonthData = async (targetYear, targetMonth) => {
+    const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`
+    
+    // 이미 복사 중이거나 복사한 적 있으면 스킵
+    if (isCopyingRef.current || copiedMonthsRef.current.has(targetMonthKey)) {
+      return
+    }
+    
+    // 이미 데이터가 있으면 스킵
+    if (hasDataForMonth(targetYear, targetMonth)) {
+      copiedMonthsRef.current.add(targetMonthKey)
+      return
+    }
+    
+    const prevMonth = findPreviousMonthWithData(targetYear, targetMonth)
+    if (!prevMonth) return
+    
+    // 복사 시작
+    isCopyingRef.current = true
+    copiedMonthsRef.current.add(targetMonthKey)
+    
+    const prevMonthKey = `${prevMonth.year}-${String(prevMonth.month).padStart(2, '0')}`
+    
+    // 전달 데이터 필터
+    const prevIncome = incomeList.filter(item => item.date.startsWith(prevMonthKey))
+    const prevFixed = fixedList.filter(item => item.date.startsWith(prevMonthKey))
+    const prevVariable = variableList.filter(item => item.date.startsWith(prevMonthKey))
+    
+    // 날짜 변환 함수
+    const convertDate = (dateStr) => {
+      const day = dateStr.split('-')[2]
+      return `${targetMonthKey}-${day}`
+    }
+    
+    const newIncomeItems = []
+    const newFixedItems = []
+    const newVariableItems = []
+    
+    // 수입 복사 (금액 0으로)
+    for (const item of prevIncome) {
+      const newData = {
+        type: 'income',
+        name: item.name,
+        amount: 0,
+        date: convertDate(item.date),
+        is_completed: false,
+        memo: item.memo || ''
+      }
+      
+      if (useSupabase) {
+        const { data, error } = await addTransaction(newData)
+        if (!error) newIncomeItems.push(transformData(data))
+      } else {
+        const newId = Math.max(...incomeList.map(i => typeof i.id === 'number' ? i.id : 0), 0) + newIncomeItems.length + 1
+        newIncomeItems.push({ id: newId, ...newData, completed: false })
+      }
+    }
+    
+    // 고정지출 복사 (금액 유지)
+    for (const item of prevFixed) {
+      const newData = {
+        type: 'fixed',
+        name: item.name,
+        amount: item.amount,
+        date: convertDate(item.date),
+        is_completed: false,
+        memo: item.memo || ''
+      }
+      
+      if (useSupabase) {
+        const { data, error } = await addTransaction(newData)
+        if (!error) newFixedItems.push(transformData(data))
+      } else {
+        const newId = Math.max(...fixedList.map(i => typeof i.id === 'number' ? i.id : 0), 0) + newFixedItems.length + 1
+        newFixedItems.push({ id: newId, ...newData, completed: false })
+      }
+    }
+    
+    // 변동지출 복사 (금액 0으로)
+    for (const item of prevVariable) {
+      const newData = {
+        type: 'variable',
+        name: item.name,
+        amount: 0,
+        date: convertDate(item.date),
+        is_completed: false,
+        memo: item.memo || ''
+      }
+      
+      if (useSupabase) {
+        const { data, error } = await addTransaction(newData)
+        if (!error) newVariableItems.push(transformData(data))
+      } else {
+        const newId = Math.max(...variableList.map(i => typeof i.id === 'number' ? i.id : 0), 0) + newVariableItems.length + 1
+        newVariableItems.push({ id: newId, ...newData, completed: false })
+      }
+    }
+    
+    // 상태 업데이트
+    if (newIncomeItems.length > 0) setIncomeList(prev => [...prev, ...newIncomeItems])
+    if (newFixedItems.length > 0) setFixedList(prev => [...prev, ...newFixedItems])
+    if (newVariableItems.length > 0) setVariableList(prev => [...prev, ...newVariableItems])
+    
+    // 복사 완료
+    isCopyingRef.current = false
+  }
+  
   // 월 이동 함수
   const goToPrevMonth = () => {
     if (currentMonthNum === 1) {
@@ -186,13 +323,18 @@ function Budget() {
     }
   }
   
-  const goToNextMonth = () => {
-    if (currentMonthNum === 12) {
-      setCurrentYear(currentYear + 1)
-      setCurrentMonthNum(1)
-    } else {
-      setCurrentMonthNum(currentMonthNum + 1)
-    }
+  const goToNextMonth = async () => {
+    // 복사 중이면 실행 안 함
+    if (isCopyingRef.current) return
+    
+    const nextYear = currentMonthNum === 12 ? currentYear + 1 : currentYear
+    const nextMonth = currentMonthNum === 12 ? 1 : currentMonthNum + 1
+    
+    // 다음 달에 데이터가 없으면 자동 복사
+    await copyPreviousMonthData(nextYear, nextMonth)
+    
+    setCurrentYear(nextYear)
+    setCurrentMonthNum(nextMonth)
   }
   
   // 데이터 계산
@@ -213,7 +355,7 @@ function Budget() {
     setFormData({
       day: parseInt(day).toString(),
       name: item.name,
-      amount: item.amount.toString(),
+      amount: item.amount > 0 ? item.amount.toString() : '',
       memo: item.memo || ''
     })
     setEditModal({ type, item, isNew: false })

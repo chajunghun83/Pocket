@@ -7,10 +7,12 @@ import {
   TrendingUp, 
   Settings,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useSettings } from '../context/SettingsContext'
+import { useAuth } from '../context/AuthContext'
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: '대시보드' },
@@ -24,9 +26,19 @@ const navItems = [
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { settings } = useSettings()
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const hasRedirected = useRef(false)
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
 
   // 첫 로드 시 시작 페이지로 이동
   useEffect(() => {
@@ -72,6 +84,10 @@ function Layout() {
         </nav>
 
         <div className="sidebar-footer">
+          <button className="logout-btn" onClick={handleLogout}>
+            <LogOut size={16} />
+            <span>로그아웃</span>
+          </button>
           <p className="version">v0.1.0</p>
         </div>
       </aside>

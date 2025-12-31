@@ -1,9 +1,28 @@
-import { User, Lock, Database, Info, ExternalLink, Moon, Sun, DollarSign, Target, Home } from 'lucide-react'
+import { User, Lock, Database, Info, ExternalLink, Moon, Sun, DollarSign, Target, Home, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
+import { useAuth } from '../context/AuthContext'
 import { formatCurrency } from '../data/dummyData'
 
 function Settings() {
   const { settings, updateSetting, toggleDarkMode } = useSettings()
+  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
+
+  // 로그아웃 핸들러
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
+  // 사용자 이름 추출 (이메일에서 @ 앞부분)
+  const userName = user?.email?.split('@')[0] || '사용자'
+  const userEmail = user?.email || 'user@example.com'
+  const userInitial = userName.charAt(0).toUpperCase()
 
   // 예산 목표 변경 핸들러
   const handleBudgetChange = (e) => {
@@ -71,17 +90,32 @@ function Settings() {
                   fontSize: '1rem',
                   fontWeight: '700'
                 }}>
-                  U
+                  {userInitial}
                 </div>
                 <div>
-                  <p style={{ fontWeight: '600', fontSize: '0.85rem' }}>사용자</p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>user@example.com</p>
+                  <p style={{ fontWeight: '600', fontSize: '0.85rem' }}>{userName}</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{userEmail}</p>
                 </div>
               </div>
-              <button className="btn btn-secondary" style={{ width: '100%' }}>
-                <Lock size={12} />
-                비밀번호 변경
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }}>
+                  <Lock size={12} />
+                  비밀번호 변경
+                </button>
+                <button 
+                  className="btn" 
+                  style={{ 
+                    flex: 1, 
+                    background: 'var(--expense-light)', 
+                    color: 'var(--expense)',
+                    border: '1px solid var(--expense)'
+                  }}
+                  onClick={handleLogout}
+                >
+                  <LogOut size={12} />
+                  로그아웃
+                </button>
+              </div>
             </div>
           </div>
 

@@ -198,3 +198,4 @@ CREATE TRIGGER update_settings_updated_at
 -- 테이블 생성 완료!
 -- 이제 앱에서 Supabase 연동을 사용할 수 있습니다.
 
+
