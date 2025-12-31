@@ -111,6 +111,7 @@ C:\work\Pocket\
     │   ├─ assetService.js        # 자산관리 CRUD (Supabase)
     │   ├─ debtService.js         # 부채관리 CRUD (Supabase)
     │   ├─ stockService.js        # 주식관리 CRUD (Supabase)
+    │   ├─ backupService.js       # 데이터 백업/복구 서비스 🆕
     │   └─ yahooFinance.js        # Yahoo Finance API (주식 현재가)
     │
     └─ 📂 styles\              # 스타일
@@ -289,6 +290,10 @@ http://localhost:3000
 
 #### 6. Settings.jsx (설정)
 - 로그인된 사용자 정보 표시
+- **데이터 백업/복구** 🆕
+  - JSON 파일로 내보내기 (백업)
+  - JSON 파일에서 가져오기 (복구)
+  - 데이터 통계 표시
 - 다크모드 토글
 - 시작 페이지 설정
 - 주식 기본 탭 설정
@@ -354,6 +359,13 @@ http://localhost:3000
 - `fetchMultipleStockPrices()` - 다중 종목 조회
 - `fetchExchangeRate()` - USD/KRW 환율 조회
 - `fetchChartData()` - 차트 데이터 조회
+
+#### backupService.js 🆕
+- `exportAllData()` - 모든 테이블 데이터 조회
+- `downloadBackup()` - JSON 파일로 다운로드
+- `importAllData()` - 백업 파일에서 데이터 복구
+- `readBackupFile()` - 파일 읽기 및 파싱
+- `getDataStats()` - 데이터 통계 조회
 
 ---
 

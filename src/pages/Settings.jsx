@@ -1,13 +1,97 @@
-import { User, Lock, Database, Info, ExternalLink, Moon, Sun, DollarSign, Target, Home, LogOut } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { User, Lock, Database, Info, ExternalLink, Moon, Sun, DollarSign, Target, Home, LogOut, Download, Upload, AlertCircle, CheckCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
 import { useAuth } from '../context/AuthContext'
 import { formatCurrency } from '../data/dummyData'
+import { exportAllData, downloadBackup, importAllData, readBackupFile, getDataStats } from '../services/backupService'
 
 function Settings() {
   const { settings, updateSetting, toggleDarkMode } = useSettings()
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const fileInputRef = useRef(null)
+  
+  // 백업/복구 상태
+  const [isExporting, setIsExporting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [backupMessage, setBackupMessage] = useState(null)
+  const [dataStats, setDataStats] = useState(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [pendingBackupData, setPendingBackupData] = useState(null)
+  
+  // 데이터 통계 로드
+  useEffect(() => {
+    const loadStats = async () => {
+      const stats = await getDataStats()
+      setDataStats(stats)
+    }
+    loadStats()
+  }, [])
+  
+  // 백업 (내보내기)
+  const handleExport = async () => {
+    setIsExporting(true)
+    setBackupMessage(null)
+    
+    try {
+      const { data, error } = await exportAllData()
+      if (error) throw error
+      
+      downloadBackup(data)
+      setBackupMessage({ type: 'success', text: '백업 파일이 다운로드되었습니다.' })
+    } catch (error) {
+      setBackupMessage({ type: 'error', text: '백업 실패: ' + error.message })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+  
+  // 복구 (가져오기) - 파일 선택
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+  
+  // 파일 선택 후 처리
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    try {
+      const backupData = await readBackupFile(file)
+      setPendingBackupData(backupData)
+      setShowConfirmModal(true)
+    } catch (error) {
+      setBackupMessage({ type: 'error', text: error.message })
+    }
+    
+    // 파일 입력 초기화
+    e.target.value = ''
+  }
+  
+  // 복구 확인
+  const handleConfirmImport = async (clearExisting) => {
+    setShowConfirmModal(false)
+    setIsImporting(true)
+    setBackupMessage(null)
+    
+    try {
+      const result = await importAllData(pendingBackupData, clearExisting)
+      if (result.success) {
+        setBackupMessage({ type: 'success', text: result.message })
+        // 통계 새로고침
+        const stats = await getDataStats()
+        setDataStats(stats)
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error) {
+      setBackupMessage({ type: 'error', text: '복구 실패: ' + error.message })
+    } finally {
+      setIsImporting(false)
+      setPendingBackupData(null)
+    }
+  }
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
@@ -119,29 +203,177 @@ function Settings() {
             </div>
           </div>
 
-          {/* 데이터 */}
+          {/* 데이터 백업/복구 */}
           <div className="card">
             <div className="card-header">
               <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Database size={14} style={{ color: 'var(--accent)' }} />
-                데이터
+                데이터 백업/복구
               </h3>
             </div>
             <div className="card-body">
+              {/* 연결 상태 & 통계 */}
               <div style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <span style={{ fontSize: '0.8rem' }}>Supabase 연결</span>
                   <span className="badge completed">연결됨</span>
                 </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>클라우드 자동 저장</p>
+                {dataStats && (
+                  <div style={{ 
+                    background: 'var(--bg-secondary)', 
+                    borderRadius: '8px', 
+                    padding: '10px',
+                    fontSize: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>총 데이터</span>
+                      <span style={{ fontWeight: '600' }}>{dataStats.total}건</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                      <span>가계부 {dataStats.transactions}</span>
+                      <span>자산 {dataStats.assets}</span>
+                      <span>부채 {dataStats.debts}</span>
+                      <span>주식 {dataStats.stocks}</span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }}>내보내기</button>
-                <button className="btn btn-secondary" style={{ flex: 1 }}>가져오기</button>
+              
+              {/* 백업 메시지 */}
+              {backupMessage && (
+                <div style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  marginBottom: '12px',
+                  fontSize: '0.8rem',
+                  background: backupMessage.type === 'success' ? 'var(--income-light)' : 'var(--expense-light)',
+                  color: backupMessage.type === 'success' ? 'var(--income)' : 'var(--expense)'
+                }}>
+                  {backupMessage.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                  {backupMessage.text}
+                </div>
+              )}
+              
+              {/* 백업/복구 버튼 */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  onClick={handleExport}
+                  disabled={isExporting}
+                >
+                  <Download size={14} />
+                  {isExporting ? '내보내는 중...' : '백업 (내보내기)'}
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  onClick={handleImportClick}
+                  disabled={isImporting}
+                >
+                  <Upload size={14} />
+                  {isImporting ? '복구 중...' : '복구 (가져오기)'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
               </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '8px' }}>
+                💡 백업 파일은 JSON 형식으로 저장됩니다
+              </p>
             </div>
           </div>
         </div>
+        
+        {/* 복구 확인 모달 */}
+        {showConfirmModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              background: 'var(--bg-primary)',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '400px',
+              width: '90%',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+            }}>
+              <h3 style={{ marginBottom: '16px', fontSize: '1rem' }}>📦 데이터 복구</h3>
+              
+              {pendingBackupData && (
+                <div style={{ 
+                  background: 'var(--bg-secondary)', 
+                  borderRadius: '8px', 
+                  padding: '12px',
+                  marginBottom: '16px',
+                  fontSize: '0.8rem'
+                }}>
+                  <p style={{ marginBottom: '8px', color: 'var(--text-muted)' }}>
+                    백업 날짜: {new Date(pendingBackupData.exportedAt).toLocaleString('ko-KR')}
+                  </p>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <span>가계부 {pendingBackupData.data.transactions?.length || 0}건</span>
+                    <span>자산 {pendingBackupData.data.assets?.length || 0}건</span>
+                    <span>부채 {pendingBackupData.data.debts?.length || 0}건</span>
+                    <span>주식 {pendingBackupData.data.stocks?.length || 0}건</span>
+                  </div>
+                </div>
+              )}
+              
+              <p style={{ marginBottom: '20px', fontSize: '0.85rem', lineHeight: '1.5' }}>
+                복구 방법을 선택하세요:
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => handleConfirmImport(false)}
+                  style={{ padding: '12px' }}
+                >
+                  기존 데이터 유지하고 추가
+                </button>
+                <button 
+                  className="btn"
+                  onClick={() => handleConfirmImport(true)}
+                  style={{ 
+                    padding: '12px',
+                    background: 'var(--expense-light)',
+                    color: 'var(--expense)',
+                    border: '1px solid var(--expense)'
+                  }}
+                >
+                  ⚠️ 기존 데이터 삭제 후 복구
+                </button>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowConfirmModal(false)
+                    setPendingBackupData(null)
+                  }}
+                  style={{ padding: '12px' }}
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 화면 설정 & 예산 목표 */}
         <div className="grid-2">
