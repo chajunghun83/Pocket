@@ -205,47 +205,84 @@ function Budget() {
     return null
   }
   
-  // 전달 데이터를 새 달로 복사
-  const copyPreviousMonthData = async (targetYear, targetMonth) => {
-    const targetMonthKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`
-    
-    // 이미 복사 중이거나 복사한 적 있으면 스킵
-    if (isCopyingRef.current || copiedMonthsRef.current.has(targetMonthKey)) {
+  // 현재 달의 항목을 다음 달로 동기화 (없는 항목만 추가, 삭제 안함)
+  const syncToNextMonth = async (fromYear, fromMonth, toYear, toMonth) => {
+    // 이미 동기화 중이면 스킵
+    if (isCopyingRef.current) {
       return
     }
     
-    // 이미 데이터가 있으면 스킵
-    if (hasDataForMonth(targetYear, targetMonth)) {
-      copiedMonthsRef.current.add(targetMonthKey)
+    const fromMonthKey = `${fromYear}-${String(fromMonth).padStart(2, '0')}`
+    const toMonthKey = `${toYear}-${String(toMonth).padStart(2, '0')}`
+    
+    console.log(`동기화: ${fromMonthKey} → ${toMonthKey}`)
+    
+    // 현재 달(from) 데이터 - 날짜순 정렬
+    const fromIncome = incomeList
+      .filter(item => item.date.startsWith(fromMonthKey))
+      .sort((a, b) => parseInt(a.date.split('-')[2]) - parseInt(b.date.split('-')[2]))
+    const fromFixed = fixedList
+      .filter(item => item.date.startsWith(fromMonthKey))
+      .sort((a, b) => parseInt(a.date.split('-')[2]) - parseInt(b.date.split('-')[2]))
+    const fromVariable = variableList
+      .filter(item => item.date.startsWith(fromMonthKey))
+      .sort((a, b) => parseInt(a.date.split('-')[2]) - parseInt(b.date.split('-')[2]))
+    
+    // 현재 달에 데이터가 없으면 스킵
+    if (fromIncome.length === 0 && fromFixed.length === 0 && fromVariable.length === 0) {
+      console.log('현재 달에 데이터 없음, 스킵')
       return
     }
     
-    const prevMonth = findPreviousMonthWithData(targetYear, targetMonth)
-    if (!prevMonth) return
+    // 다음 달(to)에 있는 항목 이름 Set
+    const toIncomeNames = new Set(
+      incomeList.filter(item => item.date.startsWith(toMonthKey)).map(item => item.name)
+    )
+    const toFixedNames = new Set(
+      fixedList.filter(item => item.date.startsWith(toMonthKey)).map(item => item.name)
+    )
+    const toVariableNames = new Set(
+      variableList.filter(item => item.date.startsWith(toMonthKey)).map(item => item.name)
+    )
     
-    // 복사 시작
-    isCopyingRef.current = true
-    copiedMonthsRef.current.add(targetMonthKey)
-    
-    const prevMonthKey = `${prevMonth.year}-${String(prevMonth.month).padStart(2, '0')}`
-    
-    // 전달 데이터 필터
-    const prevIncome = incomeList.filter(item => item.date.startsWith(prevMonthKey))
-    const prevFixed = fixedList.filter(item => item.date.startsWith(prevMonthKey))
-    const prevVariable = variableList.filter(item => item.date.startsWith(prevMonthKey))
-    
-    // 날짜 변환 함수
+    // 날짜 변환 함수 (해당 월의 마지막 날짜 체크)
     const convertDate = (dateStr) => {
-      const day = dateStr.split('-')[2]
-      return `${targetMonthKey}-${day}`
+      const day = parseInt(dateStr.split('-')[2])
+      // 해당 월의 마지막 날짜 계산
+      const lastDayOfMonth = new Date(toYear, toMonth, 0).getDate()
+      // 날짜가 해당 월의 마지막 날짜를 초과하면 마지막 날짜로 설정
+      const validDay = Math.min(day, lastDayOfMonth)
+      return `${toMonthKey}-${String(validDay).padStart(2, '0')}`
     }
+    
+    // 추가할 항목 찾기
+    const itemsToAdd = {
+      income: fromIncome.filter(item => !toIncomeNames.has(item.name)),
+      fixed: fromFixed.filter(item => !toFixedNames.has(item.name)),
+      variable: fromVariable.filter(item => !toVariableNames.has(item.name))
+    }
+    
+    // 추가할 항목이 없으면 스킵
+    if (itemsToAdd.income.length === 0 && itemsToAdd.fixed.length === 0 && itemsToAdd.variable.length === 0) {
+      console.log('추가할 항목 없음, 스킵')
+      return
+    }
+    
+    console.log('추가할 항목:', {
+      income: itemsToAdd.income.map(i => i.name),
+      fixed: itemsToAdd.fixed.map(i => i.name),
+      variable: itemsToAdd.variable.map(i => i.name)
+    })
+    
+    // 동기화 시작
+    isCopyingRef.current = true
     
     const newIncomeItems = []
     const newFixedItems = []
     const newVariableItems = []
     
-    // 수입 복사 (금액 0으로)
-    for (const item of prevIncome) {
+    // 수입 추가 (금액 0)
+    for (const item of itemsToAdd.income) {
       const newData = {
         type: 'income',
         name: item.name,
@@ -257,15 +294,15 @@ function Budget() {
       
       if (useSupabase) {
         const { data, error } = await addTransaction(newData)
-        if (!error) newIncomeItems.push(transformData(data))
+        if (!error && data) newIncomeItems.push(transformData(data))
       } else {
         const newId = Math.max(...incomeList.map(i => typeof i.id === 'number' ? i.id : 0), 0) + newIncomeItems.length + 1
         newIncomeItems.push({ id: newId, ...newData, completed: false })
       }
     }
     
-    // 고정지출 복사 (금액 유지)
-    for (const item of prevFixed) {
+    // 고정지출 추가 (금액 유지)
+    for (const item of itemsToAdd.fixed) {
       const newData = {
         type: 'fixed',
         name: item.name,
@@ -277,15 +314,15 @@ function Budget() {
       
       if (useSupabase) {
         const { data, error } = await addTransaction(newData)
-        if (!error) newFixedItems.push(transformData(data))
+        if (!error && data) newFixedItems.push(transformData(data))
       } else {
         const newId = Math.max(...fixedList.map(i => typeof i.id === 'number' ? i.id : 0), 0) + newFixedItems.length + 1
         newFixedItems.push({ id: newId, ...newData, completed: false })
       }
     }
     
-    // 변동지출 복사 (금액 0으로)
-    for (const item of prevVariable) {
+    // 변동지출 추가 (금액 0)
+    for (const item of itemsToAdd.variable) {
       const newData = {
         type: 'variable',
         name: item.name,
@@ -297,19 +334,25 @@ function Budget() {
       
       if (useSupabase) {
         const { data, error } = await addTransaction(newData)
-        if (!error) newVariableItems.push(transformData(data))
+        if (!error && data) newVariableItems.push(transformData(data))
       } else {
         const newId = Math.max(...variableList.map(i => typeof i.id === 'number' ? i.id : 0), 0) + newVariableItems.length + 1
         newVariableItems.push({ id: newId, ...newData, completed: false })
       }
     }
     
+    console.log('추가 완료:', { 
+      income: newIncomeItems.length, 
+      fixed: newFixedItems.length, 
+      variable: newVariableItems.length 
+    })
+    
     // 상태 업데이트
     if (newIncomeItems.length > 0) setIncomeList(prev => [...prev, ...newIncomeItems])
     if (newFixedItems.length > 0) setFixedList(prev => [...prev, ...newFixedItems])
     if (newVariableItems.length > 0) setVariableList(prev => [...prev, ...newVariableItems])
     
-    // 복사 완료
+    // 동기화 완료
     isCopyingRef.current = false
   }
   
@@ -324,14 +367,14 @@ function Budget() {
   }
   
   const goToNextMonth = async () => {
-    // 복사 중이면 실행 안 함
+    // 동기화 중이면 실행 안 함
     if (isCopyingRef.current) return
     
     const nextYear = currentMonthNum === 12 ? currentYear + 1 : currentYear
     const nextMonth = currentMonthNum === 12 ? 1 : currentMonthNum + 1
     
-    // 다음 달에 데이터가 없으면 자동 복사
-    await copyPreviousMonthData(nextYear, nextMonth)
+    // 현재 달의 항목을 다음 달로 동기화 (없는 항목만 추가)
+    await syncToNextMonth(currentYear, currentMonthNum, nextYear, nextMonth)
     
     setCurrentYear(nextYear)
     setCurrentMonthNum(nextMonth)
@@ -534,6 +577,10 @@ function Budget() {
     const sortedData = [...data].sort((a, b) => {
       const dayA = parseInt(a.date.split('-')[2])
       const dayB = parseInt(b.date.split('-')[2])
+      // 날짜가 같으면 이름순으로 정렬
+      if (dayA === dayB) {
+        return a.name.localeCompare(b.name, 'ko')
+      }
       return dayA - dayB
     })
     const isIncome = type === 'income'
