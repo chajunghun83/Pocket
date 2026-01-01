@@ -128,9 +128,9 @@ function Budget() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [editModal])
   
-  // 월 선택 state (기본: 2025년 12월)
-  const [currentYear, setCurrentYear] = useState(2025)
-  const [currentMonthNum, setCurrentMonthNum] = useState(12)
+  // 월 선택 state (기본: 현재 연도/월)
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear())
+  const [currentMonthNum, setCurrentMonthNum] = useState(() => new Date().getMonth() + 1)
   
   // 현재 선택된 월 문자열
   const currentMonthStr = `${currentYear}년 ${currentMonthNum}월`
