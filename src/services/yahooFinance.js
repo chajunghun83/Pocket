@@ -4,12 +4,12 @@
  * - 환율 정보 조회
  * 
  * 로컬 개발: Vite 프록시 사용 (/api/yahoo)
- * 프로덕션: Netlify Functions 사용 (/.netlify/functions/yahoo-finance)
+ * 프로덕션: Vercel Functions 사용 (/api/yahoo-finance)
  */
 
 // 환경에 따라 API URL 결정
 const isDevelopment = import.meta.env.DEV
-const YAHOO_API_BASE = isDevelopment ? '/api/yahoo' : '/.netlify/functions/yahoo-finance'
+const YAHOO_API_BASE = isDevelopment ? '/api/yahoo' : '/api/yahoo-finance'
 
 /**
  * 야후 파이낸스 심볼 변환
