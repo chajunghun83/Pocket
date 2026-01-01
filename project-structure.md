@@ -2,14 +2,14 @@
 
 > **작성일**: 2026-01-01 (업데이트)  
 > **프로젝트**: 개인 자산 관리 앱 (Pocket)  
-> **배포 URL**: https://cjh-pocket.netlify.app
+> **배포 URL**: https://pocket-silk.vercel.app
 
 ---
 
 ## 📊 메뉴 및 경로 구조
 
 ```
-Pocket App (https://cjh-pocket.netlify.app)
+Pocket App (https://pocket-silk.vercel.app)
 │
 ├─ 🔐 로그인 (Login) 🆕
 │   ├─ 경로: /login
@@ -60,7 +60,8 @@ C:\work\Pocket\
 │   ├─ env-template.txt        # .env 파일 템플릿
 │   ├─ package.json            # 프로젝트 의존성 관리
 │   ├─ package-lock.json       # 의존성 버전 잠금
-│   ├─ vite.config.js          # Vite 설정 (Yahoo Finance 프록시 포함)
+│   ├─ vite.config.js          # Vite 설정 (로컬 프록시)
+│   ├─ vercel.json             # Vercel 설정 (SPA 라우팅) 🆕
 │   └─ index.html              # HTML 진입점
 │
 ├─ 📚 문서
@@ -75,9 +76,12 @@ C:\work\Pocket\
 ├─ 📂 public\                  # 정적 파일
 │   └─ favicon.svg             # 파비콘
 │
-├─ 📂 supabase\                # Supabase 관련 파일 🆕
+├─ 📂 supabase\                # Supabase 관련 파일
 │   ├─ schema.sql              # 전체 스키마 (RLS 포함)
 │   └─ schema-no-auth.sql      # 간소화 스키마 (인증 없음)
+│
+├─ 📂 api\                     # Vercel Functions 🆕
+│   └─ yahoo-finance.js        # Yahoo Finance API 프록시
 │
 └─ 📂 src\                     # 소스 코드
     │
@@ -224,15 +228,16 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJI...
 - ✅ **Phase 3**: UI 개발 완료 (더미 데이터)
 - ✅ **Phase 4**: Supabase 연동 완료 ← **2025-12-31 완료!**
 - ✅ **Phase 5**: 로그인 기능 완료 ← **2026-01-01 완료!**
-- ✅ **Phase 6**: Netlify 배포 완료 ← **2026-01-01 완료!**
+- ✅ **Phase 6**: Vercel 배포 완료 ← **2026-01-01 완료!**
 
 ### 🌐 배포 정보
 | 항목 | 내용 |
 |------|------|
-| 호스팅 | Netlify |
-| URL | https://cjh-pocket.netlify.app |
+| 호스팅 | Vercel (이전: Netlify) |
+| URL | https://pocket-silk.vercel.app |
 | GitHub | https://github.com/chajunghun83/Pocket |
 | 자동 배포 | `git push` → 자동 빌드/배포 (CI/CD)
+| Functions | Vercel Functions (Yahoo Finance 프록시)
 
 ---
 
@@ -359,6 +364,8 @@ http://localhost:3000
 - `fetchMultipleStockPrices()` - 다중 종목 조회
 - `fetchExchangeRate()` - USD/KRW 환율 조회
 - `fetchChartData()` - 차트 데이터 조회
+- **로컬**: Vite 프록시 (`/api/yahoo`)
+- **프로덕션**: Vercel Functions (`/api/yahoo-finance`)
 
 #### backupService.js 🆕
 - `exportAllData()` - 모든 테이블 데이터 조회
@@ -387,10 +394,10 @@ git push
 
 ## 📞 도움이 필요하면
 
-- **라이브 사이트**: https://cjh-pocket.netlify.app
+- **라이브 사이트**: https://pocket-silk.vercel.app
 - **GitHub 저장소**: https://github.com/chajunghun83/Pocket
 - **Supabase 프로젝트**: https://gzxbckioutctwxbevqmk.supabase.co
-- **Netlify 대시보드**: https://app.netlify.com/sites/cjh-pocket
+- **Vercel 대시보드**: https://vercel.com/cha-projects/pocket
 
 ---
 
@@ -404,10 +411,11 @@ git commit -m "변경 내용 설명"
 # 2. GitHub에 푸시 (자동 배포 트리거)
 git push
 
-# 3. Netlify가 자동으로:
+# 3. Vercel이 자동으로:
 #    - 최신 코드 가져오기
 #    - npm run build 실행
 #    - dist 폴더 배포
+#    - Vercel Functions 배포 (api/)
 #    - 약 1-2분 후 반영
 ```
 

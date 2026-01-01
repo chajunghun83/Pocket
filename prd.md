@@ -432,12 +432,14 @@
   - PrivateRoute로 인증된 사용자만 접근 가능
 
 ### 호스팅 & 배포
-- **Netlify** (프론트엔드 호스팅) ← 2026-01-01 배포 완료!
+- **Vercel** (프론트엔드 호스팅) ← 2026-01-01 배포 완료!
   - GitHub 연동 자동 배포 (CI/CD)
   - 무료 HTTPS
   - 글로벌 CDN
-  - 도메인: https://cjh-pocket.netlify.app
+  - Edge Functions 지원
+  - 도메인: https://pocket-silk.vercel.app
   - `git push` → 자동 빌드/배포
+  - Netlify 크레딧 소진으로 Vercel로 전환
 
 ### 외부 API
 - **야후 파이낸스 (Yahoo Finance)** (국장/미장 주식 현재가 - 웹 크롤링)
@@ -445,6 +447,9 @@
   - 미장: 티커 심볼 → 화면: 기업명 (티커) - 달러 표시
   - 환율 정보 포함 (USD/KRW)
     - 통합 포트폴리오 요약에만 적용
+  - **Vercel Functions** 사용 (CORS 우회, 서버리스)
+    - 로컬: Vite 프록시 (`/api/yahoo`)
+    - 프로덕션: Vercel Functions (`/api/yahoo-finance`)
 
 ### 비용
 - **완전 무료** ✅
@@ -670,11 +675,13 @@ git config --global user.email
    - 금액 버튼 크기 최적화
 3. ✅ 디자인 개선
 
-#### Phase 8: 배포 (1일차)
-1. Vercel에 배포
-2. 환경변수 설정
-3. 도메인 연결
-4. 테스트
+#### Phase 8: 배포 ✅ 완료! (2026-01-01)
+1. ✅ Netlify 배포 (초기)
+2. ✅ Vercel로 전환 (Netlify 크레딧 소진)
+3. ✅ Vercel Functions 마이그레이션
+4. ✅ 환경변수 설정
+5. ✅ SPA 라우팅 설정 (vercel.json)
+6. ✅ 도메인: https://pocket-silk.vercel.app
 
 **총 예상 기간: 2-3주** (하루 2-3시간 작업 기준)
 
@@ -772,11 +779,14 @@ git config --global user.email
 - [x] 로그인 기능 ✅ (AuthContext.jsx, Login.jsx) ← **2026-01-01 완료!**
 
 #### ✅ 배포 (2026-01-01 완료!)
-- [x] Netlify 배포 성공 ✅
+- [x] Netlify 배포 성공 ✅ (초기)
+- [x] Vercel로 전환 ✅ (Netlify 크레딧 소진)
 - [x] GitHub 연동 자동 배포 (CI/CD) ✅
+- [x] Vercel Functions 설정 ✅
 - [x] 환경변수 설정 ✅
+- [x] SPA 라우팅 (vercel.json) ✅
 - [x] 웹에서 접속 확인 ✅
-- **URL**: https://cjh-pocket.netlify.app
+- **URL**: https://pocket-silk.vercel.app
 
 ---
 
