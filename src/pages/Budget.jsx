@@ -205,7 +205,7 @@ function Budget() {
     return null
   }
   
-  // 현재 달의 항목을 다음 달로 동기화 (없는 항목만 추가, 삭제 안함)
+  // 현재 달의 항목을 다음 달로 복사 (덮어쓰기 방식: 다음 달 데이터 삭제 후 복사)
   const syncToNextMonth = async (fromYear, fromMonth, toYear, toMonth) => {
     // 이미 동기화 중이면 스킵
     if (isCopyingRef.current) {
@@ -215,7 +215,7 @@ function Budget() {
     const fromMonthKey = `${fromYear}-${String(fromMonth).padStart(2, '0')}`
     const toMonthKey = `${toYear}-${String(toMonth).padStart(2, '0')}`
     
-    console.log(`동기화: ${fromMonthKey} → ${toMonthKey}`)
+    console.log(`복사: ${fromMonthKey} → ${toMonthKey} (덮어쓰기)`)
     
     // 현재 달(from) 데이터 - 날짜순 정렬
     const fromIncome = incomeList
@@ -234,55 +234,47 @@ function Budget() {
       return
     }
     
-    // 다음 달(to)에 있는 항목 이름 Set
-    const toIncomeNames = new Set(
-      incomeList.filter(item => item.date.startsWith(toMonthKey)).map(item => item.name)
-    )
-    const toFixedNames = new Set(
-      fixedList.filter(item => item.date.startsWith(toMonthKey)).map(item => item.name)
-    )
-    const toVariableNames = new Set(
-      variableList.filter(item => item.date.startsWith(toMonthKey)).map(item => item.name)
-    )
+    // 동기화 시작
+    isCopyingRef.current = true
+    
+    // 1단계: 다음 달(to) 기존 데이터 삭제
+    const toIncome = incomeList.filter(item => item.date.startsWith(toMonthKey))
+    const toFixed = fixedList.filter(item => item.date.startsWith(toMonthKey))
+    const toVariable = variableList.filter(item => item.date.startsWith(toMonthKey))
+    
+    console.log('삭제할 항목:', {
+      income: toIncome.length,
+      fixed: toFixed.length,
+      variable: toVariable.length
+    })
+    
+    // Supabase에서 삭제
+    if (useSupabase) {
+      for (const item of [...toIncome, ...toFixed, ...toVariable]) {
+        await deleteTransaction(item.id)
+      }
+    }
+    
+    // 로컬 상태에서 다음 달 데이터 제거
+    setIncomeList(prev => prev.filter(item => !item.date.startsWith(toMonthKey)))
+    setFixedList(prev => prev.filter(item => !item.date.startsWith(toMonthKey)))
+    setVariableList(prev => prev.filter(item => !item.date.startsWith(toMonthKey)))
     
     // 날짜 변환 함수 (해당 월의 마지막 날짜 체크)
     const convertDate = (dateStr) => {
       const day = parseInt(dateStr.split('-')[2])
-      // 해당 월의 마지막 날짜 계산
       const lastDayOfMonth = new Date(toYear, toMonth, 0).getDate()
-      // 날짜가 해당 월의 마지막 날짜를 초과하면 마지막 날짜로 설정
       const validDay = Math.min(day, lastDayOfMonth)
       return `${toMonthKey}-${String(validDay).padStart(2, '0')}`
     }
     
-    // 추가할 항목 찾기
-    const itemsToAdd = {
-      income: fromIncome.filter(item => !toIncomeNames.has(item.name)),
-      fixed: fromFixed.filter(item => !toFixedNames.has(item.name)),
-      variable: fromVariable.filter(item => !toVariableNames.has(item.name))
-    }
-    
-    // 추가할 항목이 없으면 스킵
-    if (itemsToAdd.income.length === 0 && itemsToAdd.fixed.length === 0 && itemsToAdd.variable.length === 0) {
-      console.log('추가할 항목 없음, 스킵')
-      return
-    }
-    
-    console.log('추가할 항목:', {
-      income: itemsToAdd.income.map(i => i.name),
-      fixed: itemsToAdd.fixed.map(i => i.name),
-      variable: itemsToAdd.variable.map(i => i.name)
-    })
-    
-    // 동기화 시작
-    isCopyingRef.current = true
-    
+    // 2단계: 현재 달 데이터 복사
     const newIncomeItems = []
     const newFixedItems = []
     const newVariableItems = []
     
-    // 수입 추가 (금액 0)
-    for (const item of itemsToAdd.income) {
+    // 수입 복사 (금액 0)
+    for (const item of fromIncome) {
       const newData = {
         type: 'income',
         name: item.name,
@@ -301,8 +293,8 @@ function Budget() {
       }
     }
     
-    // 고정지출 추가 (금액 유지)
-    for (const item of itemsToAdd.fixed) {
+    // 고정지출 복사 (금액 유지)
+    for (const item of fromFixed) {
       const newData = {
         type: 'fixed',
         name: item.name,
@@ -321,8 +313,8 @@ function Budget() {
       }
     }
     
-    // 변동지출 추가 (금액 0)
-    for (const item of itemsToAdd.variable) {
+    // 변동지출 복사 (금액 0)
+    for (const item of fromVariable) {
       const newData = {
         type: 'variable',
         name: item.name,
@@ -341,13 +333,13 @@ function Budget() {
       }
     }
     
-    console.log('추가 완료:', { 
+    console.log('복사 완료:', { 
       income: newIncomeItems.length, 
       fixed: newFixedItems.length, 
       variable: newVariableItems.length 
     })
     
-    // 상태 업데이트
+    // 상태 업데이트 (새 항목 추가)
     if (newIncomeItems.length > 0) setIncomeList(prev => [...prev, ...newIncomeItems])
     if (newFixedItems.length > 0) setFixedList(prev => [...prev, ...newFixedItems])
     if (newVariableItems.length > 0) setVariableList(prev => [...prev, ...newVariableItems])
@@ -366,18 +358,39 @@ function Budget() {
     }
   }
   
-  const goToNextMonth = async () => {
-    // 동기화 중이면 실행 안 함
-    if (isCopyingRef.current) return
+  const goToNextMonth = () => {
+    // 단순 월 이동 (동기화 없음)
+    if (currentMonthNum === 12) {
+      setCurrentYear(currentYear + 1)
+      setCurrentMonthNum(1)
+    } else {
+      setCurrentMonthNum(currentMonthNum + 1)
+    }
+  }
+  
+  // 확정 버튼: 현재 달 → 다음 달로 데이터 복사
+  const handleConfirmMonth = async () => {
+    if (isCopyingRef.current) {
+      alert('동기화 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
     
     const nextYear = currentMonthNum === 12 ? currentYear + 1 : currentYear
     const nextMonth = currentMonthNum === 12 ? 1 : currentMonthNum + 1
     
-    // 현재 달의 항목을 다음 달로 동기화 (없는 항목만 추가)
+    const confirmed = window.confirm(
+      `${currentYear}년 ${currentMonthNum}월의 항목을 ${nextYear}년 ${nextMonth}월로 복사하시겠습니까?\n\n` +
+      `⚠️ ${nextYear}년 ${nextMonth}월의 기존 데이터가 삭제됩니다!\n\n` +
+      `• 수입: 항목 복사, 금액 0원\n` +
+      `• 고정지출: 항목 복사, 금액 복사\n` +
+      `• 변동지출: 항목 복사, 금액 0원`
+    )
+    
+    if (!confirmed) return
+    
     await syncToNextMonth(currentYear, currentMonthNum, nextYear, nextMonth)
     
-    setCurrentYear(nextYear)
-    setCurrentMonthNum(nextMonth)
+    alert(`${nextYear}년 ${nextMonth}월로 복사가 완료되었습니다!`)
   }
   
   // 데이터 계산
@@ -687,10 +700,32 @@ function Budget() {
             )}
           </p>
         </div>
-        <div className="month-selector">
+        <div className="month-selector" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button className="month-btn" onClick={goToPrevMonth}><ChevronLeft size={14} /></button>
           <span className="month-display">{currentMonthStr}</span>
           <button className="month-btn" onClick={goToNextMonth}><ChevronRight size={14} /></button>
+          <button 
+            className="confirm-month-btn" 
+            onClick={handleConfirmMonth}
+            disabled={isCopyingRef.current}
+            title="현재 달의 항목을 다음 달로 복사합니다"
+            style={{
+              marginLeft: '8px',
+              padding: '4px 12px',
+              fontSize: '0.75rem',
+              background: 'var(--accent)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <Check size={12} />
+            확정
+          </button>
         </div>
       </div>
 
