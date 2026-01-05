@@ -372,6 +372,10 @@ http://localhost:3000
 - `fetchChartData()` - 차트 데이터 조회
 - **로컬**: Vite 프록시 (`/api/yahoo`)
 - **프로덕션**: Vercel Functions (`/api/yahoo-finance`)
+- **KOSPI/KOSDAQ 자동 판별** 🆕
+  - 한국 주식: `.KS` (KOSPI) 먼저 시도
+  - 404 에러 시 `.KQ` (KOSDAQ)로 자동 재시도
+  - ETF, 코스닥 종목 모두 자동 처리
 
 #### backupService.js 🆕
 - `exportAllData()` - 모든 테이블 데이터 조회
@@ -427,5 +431,5 @@ git push
 
 ---
 
-**마지막 업데이트**: 2026-01-01
+**마지막 업데이트**: 2026-01-06
 

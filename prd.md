@@ -464,6 +464,9 @@
   - **Vercel Functions** 사용 (CORS 우회, 서버리스)
     - 로컬: Vite 프록시 (`/api/yahoo`)
     - 프로덕션: Vercel Functions (`/api/yahoo-finance`)
+  - **KOSPI/KOSDAQ 자동 판별** 🆕
+    - `.KS` (KOSPI) 먼저 시도, 404 시 `.KQ` (KOSDAQ)로 재시도
+    - ETF(TIGER, KODEX 등)와 코스닥 종목 모두 자동 처리
 
 ### 비용
 - **완전 무료** ✅
