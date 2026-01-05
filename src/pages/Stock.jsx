@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { RefreshCw, TrendingUp, TrendingDown, Plus, Edit2, BarChart3, Loader2, ChevronUp, ChevronDown, X, Trash2, ZoomIn, ZoomOut, Database } from 'lucide-react'
+import { RefreshCw, TrendingUp, TrendingDown, Plus, Edit2, BarChart3, Loader2, X, Trash2, ZoomIn, ZoomOut, Database, GripVertical, Download } from 'lucide-react'
 import { 
   ComposedChart, 
   Bar, 
@@ -28,17 +28,18 @@ import {
   updateStock,
   deleteStock as deleteStockDB,
   migrateStocks,
+  updateStockOrders,
 } from '../services/stockService'
 
 // 포트폴리오 비중 색상 팔레트
 const portfolioColors = [
   '#6366F1', // 인디고
-  '#8B5CF6', // 바이올렛
+  '#F59E0B', // 앰버 (노란색 계열)
   '#EC4899', // 핑크
-  '#F59E0B', // 앰버
   '#10B981', // 에메랄드
-  '#3B82F6', // 블루
   '#EF4444', // 레드
+  '#3B82F6', // 블루
+  '#8B5CF6', // 바이올렛
   '#14B8A6', // 틸
   '#F97316', // 오렌지
   '#84CC16', // 라임
@@ -78,14 +79,17 @@ const BROKERS = {
 
 function Stock() {
   const { settings } = useSettings()
-  const [activeTab, setActiveTab] = useState(settings.defaultCurrency)
+  const [activeTab, setActiveTab] = useState('namu') // 증권사별 탭: namu, isa, toss
   const [hoveredStock, setHoveredStock] = useState(null)
   const [selectedStock, setSelectedStock] = useState(null)
   const [chartData, setChartData] = useState([])
   const [chartPeriod, setChartPeriod] = useState('1D')
   const [isLoadingChart, setIsLoadingChart] = useState(false)
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
   const [zoomLevel, setZoomLevel] = useState(1) // 1: 100%, 2: 50%, 3: 25%
+  
+  // 드래그 앤 드롭 상태
+  const [draggedStock, setDraggedStock] = useState(null)
+  const [dragOverStock, setDragOverStock] = useState(null)
   
   // 주식 데이터 state (야후 파이낸스에서 현재가 업데이트)
   const [koreanStocks, setKoreanStocks] = useState([])
@@ -114,19 +118,32 @@ function Stock() {
     code: '',
     currency: 'KRW',
     avgPrice: '',
-    quantity: ''
+    quantity: '',
+    memo: ''
   })
   
   const allStocks = [...koreanStocks, ...usStocks]
   
-  // 포트폴리오 비중순 정렬 (평가금액 기준 내림차순)
+  // 현재 탭의 종목들
+  const currentTabStocks = useMemo(() => {
+    return allStocks.filter(stock => stock.broker === activeTab)
+  }, [allStocks, activeTab])
+  
+  // 포트폴리오 비중순 정렬 (평가금액 기준 내림차순) - 현재 탭 기준
   const stocksByWeight = useMemo(() => {
-    return [...allStocks].sort((a, b) => {
+    return [...currentTabStocks].sort((a, b) => {
       const valueA = a.currentPrice * a.quantity * (a.currency === 'USD' ? exchangeRate.USDKRW : 1)
       const valueB = b.currentPrice * b.quantity * (b.currency === 'USD' ? exchangeRate.USDKRW : 1)
       return valueB - valueA // 내림차순
     })
-  }, [allStocks, exchangeRate.USDKRW])
+  }, [currentTabStocks, exchangeRate.USDKRW])
+  
+  // 현재 탭의 총 평가금액
+  const currentTabTotalValue = useMemo(() => {
+    return currentTabStocks.reduce((sum, stock) => {
+      return sum + stock.currentPrice * stock.quantity * (stock.currency === 'USD' ? exchangeRate.USDKRW : 1)
+    }, 0)
+  }, [currentTabStocks, exchangeRate.USDKRW])
   
   // 줌 레벨에 따른 차트 데이터 (최근 N개만 표시)
   const zoomedChartData = useMemo(() => {
@@ -287,17 +304,67 @@ function Stock() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showModal])
   
+  // MD 파일 다운로드
+  const downloadAsMD = () => {
+    const brokerNames = {
+      namu: '🌳 나무증권',
+      isa: '🏦 ISA',
+      toss: '💙 토스'
+    }
+    
+    const brokerOrder = ['namu', 'isa', 'toss']
+    const today = new Date().toISOString().split('T')[0]
+    
+    let mdContent = `# 주식 포트폴리오\n\n`
+    mdContent += `> 작성일: ${today}\n\n`
+    
+    brokerOrder.forEach(broker => {
+      const stocks = allStocks
+        .filter(s => s.broker === broker)
+        .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+      
+      if (stocks.length === 0) return
+      
+      mdContent += `## ${brokerNames[broker]}\n\n`
+      mdContent += `| 종목명 | 매입가 | 수량 | 투자원금 | 현재가 | 등락률 |\n`
+      mdContent += `|:------:|:------:|:----:|:--------:|:------:|:------:|\n`
+      
+      stocks.forEach(stock => {
+        const { profitRate } = calculateStockProfit(stock)
+        const investmentAmount = stock.avgPrice * stock.quantity
+        const flag = stock.market === 'KR' ? '🇰🇷' : '🇺🇸'
+        const profitStr = profitRate >= 0 ? `+${profitRate.toFixed(2)}%` : `${profitRate.toFixed(2)}%`
+        
+        mdContent += `| ${flag} ${stock.name} | ${formatCurrency(stock.avgPrice, stock.currency)} | ${stock.quantity} | ${formatCurrency(investmentAmount, stock.currency)} | ${formatCurrency(stock.currentPrice, stock.currency)} | ${profitStr} |\n`
+      })
+      
+      mdContent += `\n`
+    })
+    
+    // 파일 다운로드
+    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `stock_portfolio_${today}.md`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   // 종목 추가 팝업 열기
   const openAddModal = () => {
     setEditMode('add')
     setFormData({
-      broker: 'namu',
+      broker: activeTab, // 현재 탭의 증권사
       market: 'KR',
       name: '',
       code: '',
       currency: 'KRW',
       avgPrice: '',
-      quantity: ''
+      quantity: '',
+      memo: ''
     })
     setShowModal(true)
   }
@@ -312,7 +379,8 @@ function Stock() {
       code: stock.code,
       currency: stock.currency,
       avgPrice: stock.avgPrice.toString(),
-      quantity: stock.quantity.toString()
+      quantity: stock.quantity.toString(),
+      memo: stock.memo || ''
     })
     setShowModal(true)
   }
@@ -363,7 +431,8 @@ function Stock() {
             code: formData.code,
             currency: formData.currency,
             avgPrice,
-            quantity
+            quantity,
+            memo: formData.memo || ''
           })
           
           if (error) throw error
@@ -385,7 +454,8 @@ function Stock() {
             currency: formData.currency,
             avgPrice,
             quantity,
-            currentPrice: avgPrice
+            currentPrice: avgPrice,
+            memo: formData.memo || ''
           }
           
           if (newStock.market === 'KR') {
@@ -404,7 +474,8 @@ function Stock() {
             code: formData.code,
             currency: formData.currency,
             avgPrice,
-            quantity
+            quantity,
+            memo: formData.memo || ''
           })
           
           if (error) throw error
@@ -432,7 +503,7 @@ function Stock() {
           // 더미 데이터 모드
           const updateFn = (stocks) => stocks.map(s => 
             s.id === selectedStock.id 
-              ? { ...s, ...formData, avgPrice, quantity, currentPrice: s.currentPrice }
+              ? { ...s, ...formData, avgPrice, quantity, memo: formData.memo || '', currentPrice: s.currentPrice }
               : s
           )
           
@@ -465,119 +536,81 @@ function Stock() {
   const usProfit = usValue - calculateTotalStockInvestment(usStocks, 1)
 
   const getStocksToShow = () => {
-    switch (activeTab) {
-      case 'kr': return koreanStocks
-      case 'us': return usStocks
-      default: return allStocks
-    }
+    // 증권사별 필터링
+    return allStocks.filter(stock => stock.broker === activeTab)
   }
 
-  // 증권사+시장 정렬 우선순위
-  const brokerMarketOrder = {
-    'isa-KR': 1,
-    'isa-US': 2,
-    'namu-KR': 3,
-    'namu-US': 4,
-    'toss-KR': 5,
-    'toss-US': 6,
-  }
-
-  // 정렬된 종목 목록
+  // 정렬된 종목 목록 (sortOrder 기준)
   const sortedStocks = useMemo(() => {
     const stocks = [...getStocksToShow()]
+    return stocks.sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+  }, [activeTab, koreanStocks, usStocks])
+  
+  // 드래그 앤 드롭 핸들러
+  const handleDragStart = (e, stock) => {
+    setDraggedStock(stock)
+    e.dataTransfer.effectAllowed = 'move'
+    // 드래그 중인 요소 스타일
+    e.currentTarget.style.opacity = '0.5'
+  }
+  
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1'
+    setDraggedStock(null)
+    setDragOverStock(null)
+  }
+  
+  const handleDragOver = (e, stock) => {
+    e.preventDefault()
+    if (draggedStock && draggedStock.id !== stock.id) {
+      setDragOverStock(stock)
+    }
+  }
+  
+  const handleDragLeave = () => {
+    setDragOverStock(null)
+  }
+  
+  const handleDrop = async (e, targetStock) => {
+    e.preventDefault()
+    if (!draggedStock || draggedStock.id === targetStock.id) return
     
-    // 기본 정렬: 증권사+시장 우선순위 → 종목명 가나다/ABC순
-    if (!sortConfig.key) {
-      return stocks.sort((a, b) => {
-        const orderA = brokerMarketOrder[`${a.broker}-${a.market}`] || 99
-        const orderB = brokerMarketOrder[`${b.broker}-${b.market}`] || 99
-        
-        if (orderA !== orderB) return orderA - orderB
-        
-        // 같은 그룹 내에서는 종목명으로 정렬
-        return a.name.localeCompare(b.name, 'ko')
+    // 새로운 순서 계산
+    const currentStocks = [...sortedStocks]
+    const draggedIndex = currentStocks.findIndex(s => s.id === draggedStock.id)
+    const targetIndex = currentStocks.findIndex(s => s.id === targetStock.id)
+    
+    // 배열에서 드래그된 항목 제거 후 타겟 위치에 삽입
+    currentStocks.splice(draggedIndex, 1)
+    currentStocks.splice(targetIndex, 0, draggedStock)
+    
+    // 새 순서로 업데이트
+    const newOrders = currentStocks.map((stock, index) => ({
+      id: stock.id,
+      sort_order: index
+    }))
+    
+    // 로컬 상태 먼저 업데이트 (즉각적인 UI 반영)
+    const updateLocalState = (prev) => {
+      return prev.map(stock => {
+        const newOrder = newOrders.find(o => o.id === stock.id)
+        return newOrder ? { ...stock, sortOrder: newOrder.sort_order } : stock
       })
     }
     
-    return stocks.sort((a, b) => {
-      let aValue, bValue
-      
-      switch (sortConfig.key) {
-        case 'broker':
-          aValue = a.broker
-          bValue = b.broker
-          break
-        case 'market':
-          aValue = a.market
-          bValue = b.market
-          break
-        case 'name':
-          aValue = a.name
-          bValue = b.name
-          break
-        case 'avgPrice':
-          aValue = a.avgPrice * (a.currency === 'USD' ? exchangeRate.USDKRW : 1)
-          bValue = b.avgPrice * (b.currency === 'USD' ? exchangeRate.USDKRW : 1)
-          break
-        case 'currentPrice':
-          aValue = a.currentPrice * (a.currency === 'USD' ? exchangeRate.USDKRW : 1)
-          bValue = b.currentPrice * (b.currency === 'USD' ? exchangeRate.USDKRW : 1)
-          break
-        case 'quantity':
-          aValue = a.quantity
-          bValue = b.quantity
-          break
-        case 'profit':
-          const profitA = calculateStockProfit(a)
-          const profitB = calculateStockProfit(b)
-          aValue = profitA.profitRate
-          bValue = profitB.profitRate
-          break
-        default:
-          return 0
+    setKoreanStocks(updateLocalState)
+    setUsStocks(updateLocalState)
+    
+    // DB에 저장
+    if (useSupabase) {
+      const { error } = await updateStockOrders(newOrders)
+      if (error) {
+        console.error('순서 저장 실패:', error)
       }
-      
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
-      return 0
-    })
-  }, [activeTab, sortConfig, koreanStocks, usStocks, exchangeRate.USDKRW])
-
-  // 정렬 핸들러
-  const handleSort = (key) => {
-    setSortConfig(prev => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
-    }))
-  }
-
-  // 정렬 아이콘 컴포넌트
-  const SortIcon = ({ columnKey }) => {
-    const isActive = sortConfig.key === columnKey
-    return (
-      <span style={{ 
-        display: 'inline-flex', 
-        flexDirection: 'column', 
-        marginLeft: '4px',
-        opacity: isActive ? 1 : 0.3,
-        transition: 'opacity 0.15s'
-      }}>
-        <ChevronUp 
-          size={10} 
-          style={{ 
-            marginBottom: '-3px',
-            color: isActive && sortConfig.direction === 'asc' ? 'var(--accent)' : 'inherit'
-          }} 
-        />
-        <ChevronDown 
-          size={10} 
-          style={{ 
-            marginTop: '-3px',
-            color: isActive && sortConfig.direction === 'desc' ? 'var(--accent)' : 'inherit'
-          }} 
-        />
-      </span>
-    )
+    }
+    
+    setDraggedStock(null)
+    setDragOverStock(null)
   }
 
   // 선택된 종목이 변경되면 차트 데이터 로드 (야후 파이낸스에서 실제 데이터 조회)
@@ -701,10 +734,19 @@ function Stock() {
             )}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={openAddModal}>
-          <Plus size={12} />
-          종목 추가
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-primary" onClick={openAddModal}>
+            <Plus size={12} />
+            종목 추가
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            onClick={downloadAsMD}
+            title="MD 파일로 내려받기"
+          >
+            <Download size={12} />
+          </button>
+        </div>
       </div>
 
       {/* 요약 카드 */}
@@ -746,9 +788,9 @@ function Stock() {
       {/* 탭 + 환율 */}
       <div className="stock-header">
         <div className="tabs">
-          <button className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>전체</button>
-          <button className={`tab ${activeTab === 'kr' ? 'active' : ''}`} onClick={() => setActiveTab('kr')}>🇰🇷</button>
-          <button className={`tab ${activeTab === 'us' ? 'active' : ''}`} onClick={() => setActiveTab('us')}>🇺🇸</button>
+          <button className={`tab ${activeTab === 'namu' ? 'active' : ''}`} onClick={() => setActiveTab('namu')}>🌳 나무</button>
+          <button className={`tab ${activeTab === 'isa' ? 'active' : ''}`} onClick={() => setActiveTab('isa')}>🏦 ISA</button>
+          <button className={`tab ${activeTab === 'toss' ? 'active' : ''}`} onClick={() => setActiveTab('toss')}>💙 토스</button>
         </div>
         <div className="stock-exchange-info">
           <span className="exchange-rate">₩{exchangeRate.USDKRW.toLocaleString()}/USD</span>
@@ -800,7 +842,7 @@ function Stock() {
           <div className="portfolio-legend">
             {stocksByWeight.slice(0, 6).map((stock, index) => {
               const value = stock.currentPrice * stock.quantity * (stock.currency === 'USD' ? exchangeRate.USDKRW : 1)
-              const percentage = (value / totalValue) * 100
+              const percentage = currentTabTotalValue > 0 ? (value / currentTabTotalValue) * 100 : 0
               const color = portfolioColors[index % portfolioColors.length]
               
               return (
@@ -841,9 +883,9 @@ function Stock() {
             boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
           }}
         >
-          {stocksByWeight.map((stock, index) => {
+          {currentTabTotalValue > 0 ? stocksByWeight.map((stock, index) => {
             const value = stock.currentPrice * stock.quantity * (stock.currency === 'USD' ? exchangeRate.USDKRW : 1)
-            const percentage = (value / totalValue) * 100
+            const percentage = (value / currentTabTotalValue) * 100
             const color = portfolioColors[index % portfolioColors.length]
             
             return (
@@ -920,7 +962,19 @@ function Stock() {
                 )}
               </div>
             )
-          })}
+          }) : (
+            <div style={{ 
+              width: '100%', 
+              background: 'var(--bg-secondary)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'var(--text-muted)',
+              fontSize: '0.75rem'
+            }}>
+              종목이 없습니다
+            </div>
+          )}
         </div>
       </div>
 
@@ -935,16 +989,27 @@ function Stock() {
               {sortedStocks.map((stock) => {
                 const { profit, profitRate } = calculateStockProfit(stock)
                 const isSelected = selectedStock?.id === stock.id
-                const broker = BROKERS[stock.broker] || BROKERS.namu
+                const isDragOver = dragOverStock?.id === stock.id
                 
                 return (
                   <div 
                     key={stock.id}
                     className={`stock-card ${isSelected ? 'selected' : ''}`}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, stock)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOver(e, stock)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, stock)}
                     onClick={() => handleStockClick(stock)}
+                    style={{
+                      borderTop: isDragOver ? '2px solid var(--accent)' : 'none',
+                      background: isDragOver ? 'var(--accent-light)' : undefined
+                    }}
                   >
                     <div className="stock-card-header">
                       <div className="stock-card-info">
+                        <GripVertical size={14} style={{ color: 'var(--text-muted)', cursor: 'grab', marginRight: '4px' }} />
                         <span className="stock-card-market" style={{ 
                           color: stock.market === 'KR' ? '#EF4444' : '#3B82F6',
                           background: stock.market === 'KR' ? '#FEE2E2' : '#DBEAFE'
@@ -952,9 +1017,6 @@ function Stock() {
                           {stock.market === 'KR' ? '🇰🇷' : '🇺🇸'}
                         </span>
                         <span className="stock-card-name">{stock.name}</span>
-                        <span className="stock-card-broker" style={{ color: broker.color }}>
-                          {broker.icon}
-                        </span>
                       </div>
                       <div className={`stock-card-profit ${profit >= 0 ? 'profit' : 'loss'}`}>
                         {formatPercent(profitRate)}
@@ -983,135 +1045,66 @@ function Stock() {
             <table className="data-table stock-table-pc">
               <thead>
                 <tr>
-                  <th 
-                    onClick={() => handleSort('broker')} 
-                    style={{ cursor: 'pointer', userSelect: 'none', width: '12%', textAlign: 'center' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      증권사
-                      <SortIcon columnKey="broker" />
-                    </span>
-                  </th>
-                  <th 
-                    onClick={() => handleSort('market')} 
-                    style={{ cursor: 'pointer', userSelect: 'none', width: '8%', textAlign: 'center' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      국가
-                      <SortIcon columnKey="market" />
-                    </span>
-                  </th>
-                  <th 
-                    onClick={() => handleSort('name')} 
-                    style={{ cursor: 'pointer', userSelect: 'none', width: '25%', textAlign: 'center' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      종목
-                      <SortIcon columnKey="name" />
-                    </span>
-                  </th>
-                  <th 
-                    onClick={() => handleSort('avgPrice')} 
-                    style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none', width: '15%' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      매입가
-                      <SortIcon columnKey="avgPrice" />
-                    </span>
-                  </th>
-                  <th 
-                    onClick={() => handleSort('currentPrice')} 
-                    style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none', width: '15%' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      현재가
-                      <SortIcon columnKey="currentPrice" />
-                    </span>
-                  </th>
-                  <th 
-                    onClick={() => handleSort('quantity')} 
-                    style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none', width: '10%' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      수량
-                      <SortIcon columnKey="quantity" />
-                    </span>
-                  </th>
-                  <th 
-                    onClick={() => handleSort('profit')} 
-                    style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none', width: '15%' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      수익
-                      <SortIcon columnKey="profit" />
-                    </span>
-                  </th>
+                  <th style={{ width: '30px', textAlign: 'center' }}></th>
+                  <th style={{ width: '30%', textAlign: 'center' }}>종목명</th>
+                  <th style={{ width: '15%', textAlign: 'center' }}>매입가</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>수량</th>
+                  <th style={{ width: '15%', textAlign: 'center' }}>투자원금</th>
+                  <th style={{ width: '15%', textAlign: 'center' }}>현재가</th>
+                  <th style={{ width: '12%', textAlign: 'center' }}>등락률</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedStocks.map((stock) => {
                   const { profit, profitRate } = calculateStockProfit(stock)
                   const isSelected = selectedStock?.id === stock.id
+                  const isDragOver = dragOverStock?.id === stock.id
+                  const investmentAmount = stock.avgPrice * stock.quantity // 투자원금
 
                   return (
                     <tr 
                       key={stock.id} 
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, stock)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOver(e, stock)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, stock)}
                       onClick={() => handleStockClick(stock)}
                       style={{ 
                         cursor: 'pointer',
-                        background: isSelected ? 'var(--accent-light)' : 'transparent',
+                        background: isDragOver ? 'var(--accent-light)' : isSelected ? 'var(--accent-light)' : 'transparent',
+                        borderTop: isDragOver ? '2px solid var(--accent)' : 'none',
                       }}
                     >
-                      <td style={{ textAlign: 'center' }}>
-                        {(() => {
-                          const broker = BROKERS[stock.broker] || BROKERS.namu
-                          return (
-                            <span 
-                              style={{ 
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                fontSize: '0.65rem', 
-                                fontWeight: '600',
-                                color: broker.color,
-                                background: broker.bgColor,
-                                padding: '2px 6px',
-                                borderRadius: '4px'
-                              }}
-                              title={broker.name}
-                            >
-                              <span>{broker.icon}</span>
-                              <span>{broker.name}</span>
-                            </span>
-                          )
-                        })()}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span style={{ 
-                          fontSize: '0.7rem', 
-                          fontWeight: '600',
-                          color: stock.market === 'KR' ? '#EF4444' : '#3B82F6',
-                          background: stock.market === 'KR' ? '#FEE2E2' : '#DBEAFE',
-                          padding: '2px 6px',
-                          borderRadius: '4px'
-                        }}>
-                          {stock.market === 'KR' ? 'KR' : 'US'}
-                        </span>
+                      <td style={{ textAlign: 'center', cursor: 'grab' }}>
+                        <GripVertical size={14} style={{ color: 'var(--text-muted)' }} />
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <div style={{ fontWeight: '600', color: isSelected ? 'var(--accent)' : 'inherit' }}>{stock.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ 
+                              fontSize: '0.65rem',
+                              color: stock.market === 'KR' ? '#EF4444' : '#3B82F6',
+                            }}>
+                              {stock.market === 'KR' ? '🇰🇷' : '🇺🇸'}
+                            </span>
+                            <span style={{ fontWeight: '600', color: isSelected ? 'var(--accent)' : 'inherit' }}>{stock.name}</span>
+                          </div>
                           <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{stock.code}</div>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                      <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
                         {formatCurrency(stock.avgPrice, stock.currency)}
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: '500' }}>
+                      <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>{stock.quantity}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        {formatCurrency(investmentAmount, stock.currency)}
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: '500' }}>
                         {formatCurrency(stock.currentPrice, stock.currency)}
                       </td>
-                      <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{stock.quantity}</td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'center' }}>
                         <div className={`amount ${profit >= 0 ? 'profit' : 'loss'}`}>
                           {formatPercent(profitRate)}
                         </div>
@@ -1549,58 +1542,7 @@ function Stock() {
 
             {/* 폼 내용 */}
             <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* 증권사 */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
-                  증권사
-                </label>
-                <select
-                  value={formData.broker}
-                  onChange={(e) => setFormData({ ...formData, broker: e.target.value })}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: '8px',
-                    border: '1px solid var(--border)', background: 'var(--bg-primary)',
-                    fontSize: '0.9rem', color: 'var(--text-primary)'
-                  }}
-                >
-                  <option value="namu">🌳 나무증권</option>
-                  <option value="toss">💙 토스</option>
-                  <option value="isa">🏦 ISA</option>
-                </select>
-              </div>
-
-              {/* 국가 */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
-                  국가
-                </label>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="market"
-                      value="KR"
-                      checked={formData.market === 'KR'}
-                      onChange={(e) => setFormData({ ...formData, market: e.target.value, currency: 'KRW' })}
-                      style={{ accentColor: 'var(--accent)' }}
-                    />
-                    <span style={{ fontSize: '0.9rem' }}>🇰🇷 국내 (KRW)</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="market"
-                      value="US"
-                      checked={formData.market === 'US'}
-                      onChange={(e) => setFormData({ ...formData, market: e.target.value, currency: 'USD' })}
-                      style={{ accentColor: 'var(--accent)' }}
-                    />
-                    <span style={{ fontSize: '0.9rem' }}>🇺🇸 미국 (USD)</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* 종목명 & 종목코드 */}
+              {/* 종목명 */}
               <div className="modal-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
@@ -1636,47 +1578,95 @@ function Stock() {
                 </div>
               </div>
 
-              {/* 매입가 */}
+              {/* 국가 선택 */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
-                  매입가 ({formData.market === 'KR' ? '₩ 원화' : '$ 달러'})
+                  국가
                 </label>
-                <input
-                  type="text"
-                  placeholder="매입가를 입력하세요"
-                  value={formData.avgPrice ? parseInt(formData.avgPrice).toLocaleString() : ''}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
-                    setFormData({ ...formData, avgPrice: value })
-                  }}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: '8px',
-                    border: '1px solid var(--border)', background: 'var(--bg-primary)',
-                    fontSize: '0.9rem', color: 'var(--text-primary)'
-                  }}
-                />
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="market"
+                      value="KR"
+                      checked={formData.market === 'KR'}
+                      onChange={(e) => setFormData({ ...formData, market: e.target.value, currency: 'KRW' })}
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>🇰🇷 국내 (KRW)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="market"
+                      value="US"
+                      checked={formData.market === 'US'}
+                      onChange={(e) => setFormData({ ...formData, market: e.target.value, currency: 'USD' })}
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>🇺🇸 미국 (USD)</span>
+                  </label>
+                </div>
               </div>
 
-              {/* 수량 */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
-                  보유수량 (주)
-                </label>
-                <input
-                  type="text"
-                  placeholder="보유 수량을 입력하세요"
-                  value={formData.quantity ? parseInt(formData.quantity).toLocaleString() : ''}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
-                    setFormData({ ...formData, quantity: value })
-                  }}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: '8px',
-                    border: '1px solid var(--border)', background: 'var(--bg-primary)',
-                    fontSize: '0.9rem', color: 'var(--text-primary)'
-                  }}
-                />
+              {/* 매입가 & 수량 */}
+              <div className="modal-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                    매입가 ({formData.market === 'KR' ? '₩' : '$'})
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="매입가"
+                    value={formData.avgPrice ? parseInt(formData.avgPrice).toLocaleString() : ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
+                      setFormData({ ...formData, avgPrice: value })
+                    }}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                      fontSize: '0.9rem', color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '500', marginBottom: '6px' }}>
+                    수량 (주)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="수량"
+                    value={formData.quantity ? parseInt(formData.quantity).toLocaleString() : ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
+                      setFormData({ ...formData, quantity: value })
+                    }}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                      fontSize: '0.9rem', color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
               </div>
+
+              {/* 투자원금 (계산값 표시) */}
+              {formData.avgPrice && formData.quantity && (
+                <div style={{ 
+                  padding: '12px', 
+                  background: 'var(--bg-secondary)', 
+                  borderRadius: '8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>투자원금</span>
+                  <span style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)' }}>
+                    {formatCurrency(parseInt(formData.avgPrice) * parseInt(formData.quantity), formData.currency)}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* 하단 버튼 */}

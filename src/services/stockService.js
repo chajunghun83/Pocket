@@ -14,6 +14,7 @@ export const getStocks = async (market = null, broker = null) => {
     let query = supabase
       .from('stocks')
       .select('*')
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
 
     if (market) {
@@ -39,7 +40,8 @@ export const getStocks = async (market = null, broker = null) => {
       avgPrice: Number(item.avg_price),
       currentPrice: Number(item.avg_price), // 현재가는 나중에 Yahoo Finance에서 갱신
       currency: item.currency,
-      memo: item.memo || ''
+      memo: item.memo || '',
+      sortOrder: item.sort_order ?? 999 // 정렬 순서
     }))
     
     return { data: stocks, error: null }
@@ -173,6 +175,28 @@ export const deleteStock = async (id) => {
 }
 
 /**
+ * 주식 순서 일괄 업데이트
+ * @param {Array} stockOrders - [{ id, sort_order }, ...]
+ */
+export const updateStockOrders = async (stockOrders) => {
+  try {
+    // 각 주식의 sort_order를 업데이트
+    const updates = stockOrders.map(({ id, sort_order }) => 
+      supabase
+        .from('stocks')
+        .update({ sort_order })
+        .eq('id', id)
+    )
+    
+    await Promise.all(updates)
+    return { error: null }
+  } catch (error) {
+    console.error('주식 순서 업데이트 실패:', error)
+    return { error }
+  }
+}
+
+/**
  * 초기 데이터 마이그레이션 (더미 데이터 → Supabase)
  * @param {Array} koreanStocks - 한국 주식 데이터
  * @param {Array} usStocks - 미국 주식 데이터
@@ -228,6 +252,7 @@ export const migrateStocks = async (koreanStocks, usStocks) => {
     return { success: false, error }
   }
 }
+
 
 
 
