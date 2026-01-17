@@ -574,11 +574,6 @@ function Budget() {
   const budgetRemaining = budgetGoal - totalExpense
   const isOverBudget = totalExpense > budgetGoal
 
-  const fixedCompleted = filteredFixed.filter(i => i.completed).length
-  const fixedTotal = filteredFixed.length
-  const variableCompleted = filteredVariable.filter(i => i.completed).length
-  const variableTotal = filteredVariable.length
-
   // 체크되지 않은 항목 금액 합계 (미처리 금액)
   const uncheckedIncome = filteredIncome.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
   const uncheckedFixed = filteredFixed.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
@@ -826,7 +821,6 @@ function Budget() {
               📌 고정 지출
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {filteredFixed.length > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{fixedCompleted}/{fixedTotal}</span>}
               <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
                 {formatCurrency(totalFixed)}
               </span>
@@ -857,7 +851,6 @@ function Budget() {
               💳 변동 지출
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {filteredVariable.length > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{variableCompleted}/{variableTotal}</span>}
               <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
                 {formatCurrency(totalVariable)}
               </span>
