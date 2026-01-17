@@ -579,6 +579,11 @@ function Budget() {
   const variableCompleted = filteredVariable.filter(i => i.completed).length
   const variableTotal = filteredVariable.length
 
+  // 체크되지 않은 항목 금액 합계 (미처리 금액)
+  const uncheckedIncome = filteredIncome.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
+  const uncheckedFixed = filteredFixed.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
+  const uncheckedVariable = filteredVariable.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
+
   // 날짜 포맷 (MM/DD)
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
@@ -794,6 +799,11 @@ function Budget() {
               <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--income)' }}>
                 {formatCurrency(totalIncome)}
               </span>
+              {uncheckedIncome > 0 && (
+                <span className="hide-mobile" style={{ fontSize: '0.7rem', color: 'var(--warning)', background: 'rgba(255, 193, 7, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                  미확인 {formatCurrency(uncheckedIncome)}
+                </span>
+              )}
               <button 
                 className="btn btn-primary" 
                 style={{ padding: '4px 12px', fontSize: '0.7rem', background: 'var(--income)' }}
@@ -820,6 +830,11 @@ function Budget() {
               <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
                 {formatCurrency(totalFixed)}
               </span>
+              {uncheckedFixed > 0 && (
+                <span className="hide-mobile" style={{ fontSize: '0.7rem', color: 'var(--warning)', background: 'rgba(255, 193, 7, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                  미확인 {formatCurrency(uncheckedFixed)}
+                </span>
+              )}
               <button 
                 className="btn btn-primary" 
                 style={{ padding: '4px 12px', fontSize: '0.7rem', background: 'var(--expense)' }}
@@ -846,6 +861,11 @@ function Budget() {
               <span className="hide-mobile" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--expense)' }}>
                 {formatCurrency(totalVariable)}
               </span>
+              {uncheckedVariable > 0 && (
+                <span className="hide-mobile" style={{ fontSize: '0.7rem', color: 'var(--warning)', background: 'rgba(255, 193, 7, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                  미확인 {formatCurrency(uncheckedVariable)}
+                </span>
+              )}
               <button 
                 className="btn btn-primary" 
                 style={{ padding: '4px 12px', fontSize: '0.7rem', background: 'var(--expense)' }}
