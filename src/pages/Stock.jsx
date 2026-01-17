@@ -1618,10 +1618,21 @@ function Stock() {
                   <input
                     type="text"
                     placeholder="매입가"
-                    value={formData.avgPrice ? parseInt(formData.avgPrice).toLocaleString() : ''}
+                    value={formData.avgPrice ? (
+                      formData.market === 'US' 
+                        ? formData.avgPrice 
+                        : parseInt(formData.avgPrice).toLocaleString()
+                    ) : ''}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
-                      setFormData({ ...formData, avgPrice: value })
+                      if (formData.market === 'US') {
+                        // 미국 주식: 소수점 허용
+                        const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                        setFormData({ ...formData, avgPrice: value })
+                      } else {
+                        // 한국 주식: 정수만
+                        const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
+                        setFormData({ ...formData, avgPrice: value })
+                      }
                     }}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: '8px',
@@ -1637,10 +1648,21 @@ function Stock() {
                   <input
                     type="text"
                     placeholder="수량"
-                    value={formData.quantity ? parseInt(formData.quantity).toLocaleString() : ''}
+                    value={formData.quantity ? (
+                      formData.market === 'US'
+                        ? formData.quantity
+                        : parseInt(formData.quantity).toLocaleString()
+                    ) : ''}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
-                      setFormData({ ...formData, quantity: value })
+                      if (formData.market === 'US') {
+                        // 미국 주식: 소수점 허용 (소수점 매매 가능)
+                        const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+                        setFormData({ ...formData, quantity: value })
+                      } else {
+                        // 한국 주식: 정수만
+                        const value = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '')
+                        setFormData({ ...formData, quantity: value })
+                      }
                     }}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: '8px',
@@ -1663,7 +1685,7 @@ function Stock() {
                 }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>투자원금</span>
                   <span style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                    {formatCurrency(parseInt(formData.avgPrice) * parseInt(formData.quantity), formData.currency)}
+                    {formatCurrency(parseFloat(formData.avgPrice) * parseFloat(formData.quantity), formData.currency)}
                   </span>
                 </div>
               )}
