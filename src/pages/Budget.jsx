@@ -578,6 +578,7 @@ function Budget() {
   const uncheckedIncome = filteredIncome.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
   const uncheckedFixed = filteredFixed.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
   const uncheckedVariable = filteredVariable.filter(i => !i.completed).reduce((sum, item) => sum + item.amount, 0)
+  const uncheckedExpense = uncheckedFixed + uncheckedVariable // 미확인 지출 총합
 
   // 날짜 포맷 (MM/DD)
   const formatDate = (dateStr) => {
@@ -740,12 +741,12 @@ function Budget() {
           <p className="summary-value amount income">{formatCurrency(totalIncome)}</p>
         </div>
         <div className="summary-card">
-          <p className="summary-label">고정 지출</p>
-          <p className="summary-value amount expense">{formatCurrency(totalFixed)}</p>
+          <p className="summary-label">지출</p>
+          <p className="summary-value amount expense">{formatCurrency(totalExpense)}</p>
         </div>
         <div className="summary-card">
-          <p className="summary-label">변동 지출</p>
-          <p className="summary-value amount expense">{formatCurrency(totalVariable)}</p>
+          <p className="summary-label" style={{ color: 'var(--warning)' }}>지출 (미확인)</p>
+          <p className="summary-value" style={{ color: 'var(--warning)' }}>{formatCurrency(uncheckedExpense)}</p>
         </div>
         {settings.useBudgetGoal && (
           <div className="summary-card">
