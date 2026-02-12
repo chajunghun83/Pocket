@@ -111,55 +111,12 @@ ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- transactions 정책
-CREATE POLICY "Users can view own transactions" ON transactions
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own transactions" ON transactions
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own transactions" ON transactions
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own transactions" ON transactions
-  FOR DELETE USING (auth.uid() = user_id);
-
--- assets 정책
-CREATE POLICY "Users can view own assets" ON assets
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own assets" ON assets
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own assets" ON assets
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own assets" ON assets
-  FOR DELETE USING (auth.uid() = user_id);
-
--- debts 정책
-CREATE POLICY "Users can view own debts" ON debts
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own debts" ON debts
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own debts" ON debts
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own debts" ON debts
-  FOR DELETE USING (auth.uid() = user_id);
-
--- stocks 정책
-CREATE POLICY "Users can view own stocks" ON stocks
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own stocks" ON stocks
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own stocks" ON stocks
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own stocks" ON stocks
-  FOR DELETE USING (auth.uid() = user_id);
-
--- settings 정책
-CREATE POLICY "Users can view own settings" ON settings
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own settings" ON settings
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own settings" ON settings
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own settings" ON settings
-  FOR DELETE USING (auth.uid() = user_id);
+-- 모든 접근 허용 정책 (개인 사용 앱이므로 간소화)
+CREATE POLICY "Allow all access" ON transactions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON assets FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON debts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON stocks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access" ON settings FOR ALL USING (true) WITH CHECK (true);
 
 -- ==========================================
 -- updated_at 자동 갱신 트리거
