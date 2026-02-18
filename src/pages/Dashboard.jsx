@@ -193,9 +193,10 @@ function Dashboard() {
   const debtBalance = totalBorrowed - totalRepaid
   const repaymentRate = totalBorrowed > 0 ? (totalRepaid / totalBorrowed) * 100 : 0
 
-  // 최근 지출
+  // 최근 지출 (체크된 항목 중 최근 확인순)
   const recentExpenses = [...filteredFixedExpense, ...filteredVariableExpense]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .filter(item => item.is_completed)
+    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
     .slice(0, 4)
 
   // 최근 부채 거래
