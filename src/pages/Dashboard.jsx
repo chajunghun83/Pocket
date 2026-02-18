@@ -1,46 +1,78 @@
-import { useState, useEffect, useCallback } from 'react'
-import { TrendingUp, TrendingDown, ArrowRight, Wallet, BarChart3, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { TrendingUp, TrendingDown, ArrowRight, Wallet, BarChart3, RefreshCw, Loader2 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import {
   formatCurrency,
   formatPercent,
-  koreanStocks as initialKoreanStocks,
-  usStocks as initialUsStocks,
   exchangeRate as initialExchangeRate,
   calculateTotalStockValue,
   calculateTotalStockInvestment,
-  incomeData,
-  fixedExpenseData,
-  variableExpenseData,
-  debtData,
-  assetData,
 } from '../data/dummyData'
 import { fetchMultipleStockPrices, fetchExchangeRate } from '../services/yahooFinance'
+import { getTransactions } from '../services/transactionService'
+import { getAssets } from '../services/assetService'
+import { getDebts } from '../services/debtService'
+import { getStocks } from '../services/stockService'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 function Dashboard() {
   // 기간 선택: 'all', '2024', '2025' 등
   const [selectedPeriod, setSelectedPeriod] = useState('all')
   
+  // Supabase 데이터 상태
+  const [transactions, setTransactions] = useState([])
+  const [assets, setAssets] = useState([])
+  const [debts, setDebts] = useState([])
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  
   // 실시간 주식 데이터 상태
-  const [koreanStocks, setKoreanStocks] = useState(initialKoreanStocks)
-  const [usStocks, setUsStocks] = useState(initialUsStocks)
+  const [koreanStocks, setKoreanStocks] = useState([])
+  const [usStocks, setUsStocks] = useState([])
   const [exchangeRate, setExchangeRate] = useState(initialExchangeRate)
   const [isLoadingPrices, setIsLoadingPrices] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
 
+  // Supabase에서 모든 데이터 로드
+  useEffect(() => {
+    const loadAllData = async () => {
+      setIsLoadingData(true)
+      try {
+        const [txResult, assetResult, debtResult, stockResult] = await Promise.all([
+          getTransactions(),
+          getAssets(),
+          getDebts(),
+          getStocks()
+        ])
+
+        if (txResult.data) setTransactions(txResult.data)
+        if (assetResult.data) setAssets(assetResult.data)
+        if (debtResult.data) setDebts(debtResult.data)
+        
+        if (stockResult.data) {
+          setKoreanStocks(stockResult.data.filter(s => s.market === 'KR'))
+          setUsStocks(stockResult.data.filter(s => s.market === 'US'))
+        }
+      } catch (error) {
+        console.error('대시보드 데이터 로드 실패:', error)
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+    loadAllData()
+  }, [])
+
   // 실시간 가격 조회
   const refreshPrices = useCallback(async () => {
+    const allStocksToFetch = [...koreanStocks, ...usStocks]
+    if (allStocksToFetch.length === 0) return
+    
     setIsLoadingPrices(true)
     try {
-      // 모든 주식 가격 조회
-      const allStocks = [...initialKoreanStocks, ...initialUsStocks]
       const [priceResults, rateResult] = await Promise.all([
-        fetchMultipleStockPrices(allStocks),
+        fetchMultipleStockPrices(allStocksToFetch),
         fetchExchangeRate()
       ])
 
-      // 가격 업데이트
       const priceMap = {}
       priceResults.forEach(result => {
         if (result.success) {
@@ -58,7 +90,6 @@ function Dashboard() {
         currentPrice: priceMap[stock.id] ?? stock.currentPrice
       })))
 
-      // 환율 업데이트
       if (rateResult.success) {
         setExchangeRate({
           USDKRW: rateResult.rate,
@@ -72,55 +103,54 @@ function Dashboard() {
     } finally {
       setIsLoadingPrices(false)
     }
-  }, [])
+  }, [koreanStocks, usStocks])
 
-  // 컴포넌트 마운트 시 가격 조회 + 1분마다 자동 갱신
+  // 주식 데이터 로드 완료 후 가격 조회 + 1분마다 자동 갱신
   useEffect(() => {
+    if (isLoadingData) return
+    if (koreanStocks.length === 0 && usStocks.length === 0) return
+    
     refreshPrices()
-    
-    // 1분(60초)마다 자동 갱신
-    const intervalId = setInterval(() => {
-      refreshPrices()
-    }, 60000)
-    
-    // 컴포넌트 언마운트 시 인터벌 정리
+    const intervalId = setInterval(refreshPrices, 60000)
     return () => clearInterval(intervalId)
-  }, [refreshPrices])
+  }, [isLoadingData])
+
+  // 트랜잭션을 유형별로 분리
+  const incomeData = useMemo(() => transactions.filter(t => t.type === 'income'), [transactions])
+  const fixedExpenseData = useMemo(() => transactions.filter(t => t.type === 'fixed'), [transactions])
+  const variableExpenseData = useMemo(() => transactions.filter(t => t.type === 'variable'), [transactions])
 
   // 사용 가능한 연도 목록 (데이터에서 추출)
   const allDates = [
     ...incomeData.map(d => d.date),
     ...fixedExpenseData.map(d => d.date),
     ...variableExpenseData.map(d => d.date),
-    ...debtData.map(d => d.date)
+    ...debts.map(d => d.date)
   ]
   const years = [...new Set(allDates.map(date => date?.slice(0, 4)))].filter(Boolean).sort().reverse()
 
   // 월별 통계 동적 계산
-  const monthlyStats = (() => {
+  const monthlyStats = useMemo(() => {
     const monthMap = {}
     
-    // 수입 집계
     incomeData.forEach(item => {
       if (!item.date) return
-      const yearMonth = item.date.slice(0, 7) // "2024-12"
+      const yearMonth = item.date.slice(0, 7)
       if (!monthMap[yearMonth]) {
         monthMap[yearMonth] = { income: 0, expense: 0 }
       }
-      monthMap[yearMonth].income += item.amount
+      monthMap[yearMonth].income += Number(item.amount)
     })
     
-    // 지출 집계 (고정 + 변동)
     ;[...fixedExpenseData, ...variableExpenseData].forEach(item => {
       if (!item.date) return
       const yearMonth = item.date.slice(0, 7)
       if (!monthMap[yearMonth]) {
         monthMap[yearMonth] = { income: 0, expense: 0 }
       }
-      monthMap[yearMonth].expense += item.amount
+      monthMap[yearMonth].expense += Number(item.amount)
     })
     
-    // 정렬된 배열로 변환
     return Object.entries(monthMap)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([yearMonth, data]) => {
@@ -132,7 +162,7 @@ function Dashboard() {
           balance: data.income - data.expense
         }
       })
-  })()
+  }, [incomeData, fixedExpenseData, variableExpenseData])
 
   // 데이터 필터링 함수
   const filterByPeriod = (data) => {
@@ -144,22 +174,22 @@ function Dashboard() {
   const filteredIncome = filterByPeriod(incomeData)
   const filteredFixedExpense = filterByPeriod(fixedExpenseData)
   const filteredVariableExpense = filterByPeriod(variableExpenseData)
-  const filteredDebt = filterByPeriod(debtData)
-  const filteredAsset = filterByPeriod(assetData)
+  const filteredDebt = filterByPeriod(debts)
+  const filteredAsset = filterByPeriod(assets)
 
-  const totalIncome = filteredIncome.reduce((sum, item) => sum + item.amount, 0)
-  const totalFixedExpense = filteredFixedExpense.reduce((sum, item) => sum + item.amount, 0)
-  const totalVariableExpense = filteredVariableExpense.reduce((sum, item) => sum + item.amount, 0)
+  const totalIncome = filteredIncome.reduce((sum, item) => sum + Number(item.amount), 0)
+  const totalFixedExpense = filteredFixedExpense.reduce((sum, item) => sum + Number(item.amount), 0)
+  const totalVariableExpense = filteredVariableExpense.reduce((sum, item) => sum + Number(item.amount), 0)
   const totalExpense = totalFixedExpense + totalVariableExpense
   
   // 현금 잔액: 자산 데이터에서 계산 (입금 - 출금)
-  const totalDeposit = filteredAsset.filter(a => a.type === 'deposit').reduce((sum, a) => sum + a.amount, 0)
-  const totalWithdraw = filteredAsset.filter(a => a.type === 'withdraw').reduce((sum, a) => sum + a.amount, 0)
+  const totalDeposit = filteredAsset.filter(a => a.type === 'deposit').reduce((sum, a) => sum + Number(a.amount), 0)
+  const totalWithdraw = filteredAsset.filter(a => a.type === 'withdraw').reduce((sum, a) => sum + Number(a.amount), 0)
   const cashBalance = totalDeposit - totalWithdraw
 
   // 부채 계산
-  const totalBorrowed = filteredDebt.filter(d => d.type === 'borrow').reduce((sum, d) => sum + d.amount, 0)
-  const totalRepaid = filteredDebt.filter(d => d.type === 'repay').reduce((sum, d) => sum + d.amount, 0)
+  const totalBorrowed = filteredDebt.filter(d => d.type === 'borrow').reduce((sum, d) => sum + Number(d.amount), 0)
+  const totalRepaid = filteredDebt.filter(d => d.type === 'repay').reduce((sum, d) => sum + Number(d.amount), 0)
   const debtBalance = totalBorrowed - totalRepaid
   const repaymentRate = totalBorrowed > 0 ? (totalRepaid / totalBorrowed) * 100 : 0
 
@@ -209,6 +239,17 @@ function Dashboard() {
 
   // 기간 표시 텍스트
   const periodLabel = selectedPeriod === 'all' ? '전체' : `${selectedPeriod}년`
+
+  if (isLoadingData) {
+    return (
+      <div className="fade-in page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+          <p>데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fade-in page-container">
